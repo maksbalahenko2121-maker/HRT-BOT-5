@@ -1043,13 +1043,9 @@ async def cmd_ref_text(message: types.Message):
 
     text, ref_link = get_ref_text(uid, b_uname)
 
-    share_msg = quote("Залетай в Аниме-Качалку! Качай героев и забирай NFT-подарки!")
-
-    share_url = f"https://t.me{quote(ref_link)}&text={share_msg}"
+    share_url = f"https://t.me{ref_link}"
 
     kb = InlineKeyboardMarkup(inline_keyboard=[
-
-        [InlineKeyboardButton(text="🔗 Перейти по ссылке", url=ref_link)],
 
         [InlineKeyboardButton(text="📤 Отправить ссылку другу", url=share_url)],
 
@@ -1058,7 +1054,6 @@ async def cmd_ref_text(message: types.Message):
     ])
 
     await message.answer(text, parse_mode="HTML", reply_markup=kb)
-
  
 
  
@@ -1945,13 +1940,9 @@ async def cb_ref(call: types.CallbackQuery):
 
     text, ref_link = get_ref_text(target_id, b_uname)
 
-    share_msg = quote("Залетай в Аниме-Качалку! Качай героев и забирай NFT-подарки!")
-
-    share_url = f"https://t.me{quote(ref_link)}&text={share_msg}"
+    share_url = f"https://t.me{ref_link}"
 
     kb = InlineKeyboardMarkup(inline_keyboard=[
-
-        [InlineKeyboardButton(text="🔗 Перейти по ссылке", url=ref_link)],
 
         [InlineKeyboardButton(text="📤 Отправить ссылку другу", url=share_url)],
 
