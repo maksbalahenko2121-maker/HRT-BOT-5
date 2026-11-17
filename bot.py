@@ -2232,7 +2232,13 @@ async def set_bot_commands():
 
     ]
 
-    await bot.set_my_commands(commands)
+    try:
+
+        await bot.set_my_commands(commands)
+
+    except Exception as e:
+
+        logging.warning(f"Ошибка сети при установке команд: {e}")
 
  
 
