@@ -743,6 +743,8 @@ def get_ref_text(uid: int, bot_username: str):
     return text, ref_link
 
 
+
+
 async def send_or_edit_screen(target, text: str, kb: InlineKeyboardMarkup, photo_id: str = "", is_edit: bool = False):
 
     if not is_edit:
@@ -1043,7 +1045,7 @@ async def cmd_ref_text(message: types.Message):
 
     text, ref_link = get_ref_text(uid, b_uname)
 
-    share_url = f"https://t.me{ref_link}"
+    share_url = f"https://t.me{quote(ref_link)}"
 
     kb = InlineKeyboardMarkup(inline_keyboard=[
 
@@ -1941,7 +1943,7 @@ async def cb_ref(call: types.CallbackQuery):
 
     text, ref_link = get_ref_text(target_id, b_uname)
 
-    share_url = f"https://t.me{ref_link}"
+    share_url = f"https://t.me{quote(ref_link)}"
 
     kb = InlineKeyboardMarkup(inline_keyboard=[
 
