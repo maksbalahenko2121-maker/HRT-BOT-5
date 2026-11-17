@@ -1413,6 +1413,10 @@ async def admin_restore_db(message: types.Message):
 
     await message.reply("✅ <b>База данных успешно восстановлена!</b> Весь прогресс игроков и статистика вернулись.", parse_mode="HTML")
 
+
+
+
+
 @dp.callback_query(F.data == "admin_top_donors")
 
 async def cb_admin_top_donors(call: types.CallbackQuery):
