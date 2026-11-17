@@ -1409,9 +1409,17 @@ async def admin_restore_db(message: types.Message):
 
     cur = db.cursor()
 
+    cur.execute("DROP TABLE IF EXISTS promocodes")
+
+    cur.execute("DROP TABLE IF EXISTS promo_used")
+
+    db.commit()
+
     init_db()
 
-    await message.reply("✅ <b>База данных успешно восстановлена!</b> Весь прогресс игроков и статистика вернулись.", parse_mode="HTML")
+    await message.reply("✅ <b>База восстановлена, а таблицы промокодов обновлены!</b>", parse_mode="HTML")
+
+
 
 
 
