@@ -1403,7 +1403,6 @@ async def cb_admin_backup(call: types.CallbackQuery):
  
 
 @dp.message(F.document, F.from_user.id == ADMIN_ID)
-@dp.message(F.document, F.from_user.id == ADMIN_ID)
 
 async def admin_restore_db(message: types.Message):
 
@@ -1413,7 +1412,7 @@ async def admin_restore_db(message: types.Message):
 
     if not fname.endswith(".db"):
 
-        return await message.reply("⚠️ Отправьте файл базы данных с расширением <b>.db</b> (например, <code>game_v2.db</code>).", parse_mode="HTML")
+        return await message.reply("⚠️ Отправьте файл базы данных с расширением <b>.db</b>.", parse_mode="HTML")
 
  
 
@@ -1443,6 +1442,10 @@ async def admin_restore_db(message: types.Message):
 
         cur = db.cursor()
 
+        cur.execute("DROP TABLE IF EXISTS referrals")
+
+        db.commit()
+
         init_db()
 
  
@@ -1455,11 +1458,9 @@ async def admin_restore_db(message: types.Message):
 
         await message.reply(
 
-            f"✅ <b>База данных успешно восстановлена!</b>\n"
+            f"✅ <b>База восстановлена, а реферальная система обновлена!</b>\n"
 
-            f"👥 Загружено игроков: <b>{users_count} чел.</b>\n"
-
-            f"Весь прогресс, уровни и статистика на месте.",
+            f"👥 Загружено игроков: <b>{users_count} чел.</b>",
 
             parse_mode="HTML"
 
@@ -1471,7 +1472,7 @@ async def admin_restore_db(message: types.Message):
 
         cur = db.cursor()
 
-        await message.reply(f"❌ <b>Ошибка при восстановлении базы:</b>\n<code>{e}</code>", parse_mode="HTML")
+        await message.reply(f"❌ <b>Ошибка при восстановлении:</b>\n<code>{e}</code>", parse_mode="HTML")
 
     await message.reply("✅ <b>База восстановлена, а таблицы промокодов обновлены!</b>", parse_mode="HTML")
 
