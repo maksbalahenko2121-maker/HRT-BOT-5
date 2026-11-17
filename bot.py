@@ -291,6 +291,14 @@ def init_db():
     cur.execute("CREATE TABLE IF NOT EXISTS payments (id INTEGER PRIMARY KEY AUTOINCREMENT, user_id INTEGER, username TEXT, item TEXT, amount INTEGER, created_at INTEGER)")
 
     cur.execute("CREATE TABLE IF NOT EXISTS referrals (referred_id INTEGER PRIMARY KEY, referrer_id INTEGER, rewarded INTEGER DEFAULT 0)")
+    
+    try:
+
+        cur.execute("ALTER TABLE referrals ADD COLUMN rewarded INTEGER DEFAULT 0")
+
+    except sqlite3.OperationalError:
+
+        pass
 
     cur.execute("CREATE TABLE IF NOT EXISTS promocodes (code TEXT PRIMARY KEY, reward INTEGER, uses_left INTEGER)")
 
@@ -726,9 +734,9 @@ def get_ref_text(uid: int, bot_username: str):
 
         f"2. Когда он зайдёт и впервые нажмёт <b>«⚡ Впитать энергию»</b> — тебе автоматически упадут <b>+50⚡</b>!\n\n"
 
-        f"🔗 <b>Твоя ссылка:</b>\n"
+        f"🔗 <b>Твоя ссылка (нажми, чтобы скопировать):</b>\n"
 
-        f"{ref_link}"
+        f"<code>{ref_link}</code>"
 
     )
 
@@ -1023,15 +1031,25 @@ async def cmd_ref_text(message: types.Message):
 
     get_user(uid, message.from_user.username)
 
-    bot_info = await bot.get_me()
+    try:
 
-    text, ref_link = get_ref_text(uid, bot_info.username)
+        bot_info = await bot.get_me()
+
+        b_uname = bot_info.username
+
+    except Exception:
+
+        b_uname = ""
+
+    text, ref_link = get_ref_text(uid, b_uname)
 
     share_msg = quote("Залетай в Аниме-Качалку! Качай героев и забирай NFT-подарки!")
 
     share_url = f"https://t.me{quote(ref_link)}&text={share_msg}"
 
     kb = InlineKeyboardMarkup(inline_keyboard=[
+
+        [InlineKeyboardButton(text="🔗 Перейти по ссылке", url=ref_link)],
 
         [InlineKeyboardButton(text="📤 Отправить ссылку другу", url=share_url)],
 
@@ -1915,15 +1933,25 @@ async def cb_ref(call: types.CallbackQuery):
 
         return await call.answer("Открой свою ссылку командой /ref", show_alert=True)
 
-    bot_info = await bot.get_me()
+    try:
 
-    text, ref_link = get_ref_text(target_id, bot_info.username)
+        bot_info = await bot.get_me()
+
+        b_uname = bot_info.username
+
+    except Exception:
+
+        b_uname = ""
+
+    text, ref_link = get_ref_text(target_id, b_uname)
 
     share_msg = quote("Залетай в Аниме-Качалку! Качай героев и забирай NFT-подарки!")
 
     share_url = f"https://t.me{quote(ref_link)}&text={share_msg}"
 
     kb = InlineKeyboardMarkup(inline_keyboard=[
+
+        [InlineKeyboardButton(text="🔗 Перейти по ссылке", url=ref_link)],
 
         [InlineKeyboardButton(text="📤 Отправить ссылку другу", url=share_url)],
 
