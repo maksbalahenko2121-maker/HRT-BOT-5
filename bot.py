@@ -733,7 +733,9 @@ def get_ref_text(uid: int, bot_username: str):
     )
 
     return text, ref_link
-  async def send_or_edit_screen(target, text: str, kb: InlineKeyboardMarkup, photo_id: str = "", is_edit: bool = False):
+
+
+async def send_or_edit_screen(target, text: str, kb: InlineKeyboardMarkup, photo_id: str = "", is_edit: bool = False):
 
     if not is_edit:
 
