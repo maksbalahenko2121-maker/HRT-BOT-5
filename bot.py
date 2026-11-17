@@ -2238,7 +2238,7 @@ async def set_bot_commands():
 
     except Exception as e:
 
-        logging.warning(f"Ошибка сети при установке команд: {e}")
+        logging.warning("set_bot_commands failed: %s", e)
 
  
 
@@ -2248,7 +2248,13 @@ async def main():
 
     await set_bot_commands()
 
-    await bot.delete_webhook(drop_pending_updates=True)
+    try:
+
+        await bot.delete_webhook(drop_pending_updates=True)
+
+    except Exception as e:
+
+        logging.warning("delete_webhook failed: %s", e)
 
     asyncio.create_task(notify_ready_users())
 
