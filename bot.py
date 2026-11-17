@@ -1390,32 +1390,75 @@ async def cb_admin_backup(call: types.CallbackQuery):
  
 
 @dp.message(F.document, F.from_user.id == ADMIN_ID)
+@dp.message(F.document, F.from_user.id == ADMIN_ID)
 
 async def admin_restore_db(message: types.Message):
 
     global db, cur
 
-    if not message.document.file_name or not message.document.file_name.endswith(".db"):
+    fname = (message.document.file_name or "").lower()
 
-        return
+    if not fname.endswith(".db"):
 
-    db.close()
+        return await message.reply("⚠️ Отправьте файл базы данных с расширением <b>.db</b> (например, <code>game_v2.db</code>).", parse_mode="HTML")
 
-    file_info = await bot.get_file(message.document.file_id)
+ 
 
-    await bot.download_file(file_info.file_path, "game_v2.db")
+    try:
 
-    db = sqlite3.connect("game_v2.db")
+        db.commit()
 
-    cur = db.cursor()
+        db.close()
 
-    cur.execute("DROP TABLE IF EXISTS promocodes")
+ 
 
-    cur.execute("DROP TABLE IF EXISTS promo_used")
+        import os
 
-    db.commit()
+        if os.path.exists("game_v2.db"):
 
-    init_db()
+            os.remove("game_v2.db")
+
+ 
+
+        file_info = await bot.get_file(message.document.file_id)
+
+        await bot.download_file(file_info.file_path, "game_v2.db")
+
+ 
+
+        db = sqlite3.connect("game_v2.db")
+
+        cur = db.cursor()
+
+        init_db()
+
+ 
+
+        cur.execute("SELECT COUNT(*) FROM users")
+
+        (users_count,) = cur.fetchone()
+
+ 
+
+        await message.reply(
+
+            f"✅ <b>База данных успешно восстановлена!</b>\n"
+
+            f"👥 Загружено игроков: <b>{users_count} чел.</b>\n"
+
+            f"Весь прогресс, уровни и статистика на месте.",
+
+            parse_mode="HTML"
+
+        )
+
+    except Exception as e:
+
+        db = sqlite3.connect("game_v2.db")
+
+        cur = db.cursor()
+
+        await message.reply(f"❌ <b>Ошибка при восстановлении базы:</b>\n<code>{e}</code>", parse_mode="HTML")
 
     await message.reply("✅ <b>База восстановлена, а таблицы промокодов обновлены!</b>", parse_mode="HTML")
 
