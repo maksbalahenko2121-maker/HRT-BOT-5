@@ -421,6 +421,7 @@ async def maintenance_middleware(handler, event: types.Update, data: dict):
     return await handler(event, data)
 
 
+
 async def track_groups_middleware(handler, event: types.Message, data: dict):
 
     if event.chat and event.chat.type in ("group", "supergroup"):
