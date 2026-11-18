@@ -2103,6 +2103,11 @@ async def handle_rp_commands(message: types.Message):
 
     cmd = message.text.strip().lower()
 
+    if cmd == "цундере" or cmd.startswith("цундере "):
+
+        return await handle_tsundere_translator(message)
+        
+
     sender = message.from_user
 
     target = message.reply_to_message.from_user
