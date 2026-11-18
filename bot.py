@@ -306,7 +306,41 @@ def init_db():
 
     cur.execute("CREATE TABLE IF NOT EXISTS promo_used (user_id INTEGER, code TEXT, PRIMARY KEY (user_id, code))")
 
-    cur.execute("CREATE TABLE IF NOT EXISTS groups (chat_id INTEGER PRIMARY KEY, title TEXT)")
+    cur.execute("""
+
+    CREATE TABLE IF NOT EXISTS groups (
+
+        chat_id INTEGER PRIMARY KEY,
+
+        title TEXT,
+
+        members_count INTEGER DEFAULT 0,
+
+        actions_count INTEGER DEFAULT 0,
+
+        last_active INTEGER DEFAULT 0
+
+    )
+
+    """)
+
+    for col_sql in [
+
+        "ALTER TABLE groups ADD COLUMN members_count INTEGER DEFAULT 0",
+
+        "ALTER TABLE groups ADD COLUMN actions_count INTEGER DEFAULT 0",
+
+        "ALTER TABLE groups ADD COLUMN last_active INTEGER DEFAULT 0",
+
+    ]:
+
+        try:
+
+            cur.execute(col_sql)
+
+        except sqlite3.OperationalError:
+
+            pass
 
     cur.execute("CREATE TABLE IF NOT EXISTS ramen_gift (sender_id INTEGER PRIMARY KEY, last_sent INTEGER)")
 
@@ -324,13 +358,151 @@ async def track_groups_middleware(handler, event: types.Message, data: dict):
 
     if event.chat and event.chat.type in ("group", "supergroup"):
 
+        cid = event.chat.id
+
         title = event.chat.title or "Группа без названия"
 
-        cur.execute("INSERT OR REPLACE INTO groups (chat_id, title) VALUES (?, ?)", (event.chat.id, title))
+        now = int(time.time())
+
+        cur.execute("SELECT 1 FROM groups WHERE chat_id = ?", (cid,))
+
+        is_new = cur.fetchone() is None
+
+ 
+
+        if is_new:
+
+            try:
+
+                m_count = await bot.get_chat_member_count(cid)
+
+            except Exception:
+
+                m_count = 0
+
+            cur.execute(
+
+                "INSERT INTO groups (chat_id, title, members_count, actions_count, last_active) VALUES (?, ?, ?, 1, ?)",
+
+                (cid, title, m_count, now)
+
+            )
+
+            db.commit()
+
+            try:
+
+                await bot.send_message(
+
+                    ADMIN_ID,
+
+                    f"➕ <b>Бота добавили в новый чат!</b>\n"
+
+                    f"💬 Название: <b>{title}</b>\n"
+
+                    f"👥 Участников: <b>{m_count} чел.</b>\n"
+
+                    f"🆔 ID: <code>{cid}</code>",
+
+                    parse_mode="HTML"
+
+                )
+
+            except Exception:
+
+                pass
+
+        else:
+
+            cur.execute(
+
+                "UPDATE groups SET title = ?, actions_count = actions_count + 1, last_active = ? WHERE chat_id = ?",
+
+                (title, now, cid)
+
+            )
+
+            db.commit()
+
+    return await handler(event, data)
+
+ 
+
+ 
+
+@dp.my_chat_member()
+
+async def on_bot_added_to_group(event: types.ChatMemberUpdated):
+
+    if event.chat.type not in ("group", "supergroup"):
+
+        return
+
+    new_status = event.new_chat_member.status
+
+    cid = event.chat.id
+
+    title = event.chat.title or "Группа без названия"
+
+    now = int(time.time())
+
+ 
+
+    if new_status in ("member", "administrator"):
+
+        try:
+
+            m_count = await bot.get_chat_member_count(cid)
+
+        except Exception:
+
+            m_count = 0
+
+        cur.execute("SELECT 1 FROM groups WHERE chat_id = ?", (cid,))
+
+        is_new = cur.fetchone() is None
+
+        cur.execute(
+
+            "INSERT OR REPLACE INTO groups (chat_id, title, members_count, actions_count, last_active) "
+
+            "VALUES (?, ?, ?, COALESCE((SELECT actions_count FROM groups WHERE chat_id = ?), 0), ?)",
+
+            (cid, title, m_count, cid, now)
+
+        )
 
         db.commit()
 
-    return await handler(event, data)
+        if is_new:
+
+            try:
+
+                await bot.send_message(
+
+                    ADMIN_ID,
+
+                    f"➕ <b>Бота добавили в новый чат!</b>\n"
+
+                    f"💬 Название: <b>{title}</b>\n"
+
+                    f"👥 Участников: <b>{m_count} чел.</b>\n"
+
+                    f"🆔 ID: <code>{cid}</code>",
+
+                    parse_mode="HTML"
+
+                )
+
+            except Exception:
+
+                pass
+
+    elif new_status in ("left", "kicked"):
+
+        cur.execute("DELETE FROM groups WHERE chat_id = ?", (cid,))
+
+        db.commit()
 
  
 
@@ -1265,8 +1437,10 @@ def get_admin_dashboard():
 
         [InlineKeyboardButton(text="🎟 Создать промокод", callback_data="admin_new_promo"), InlineKeyboardButton(text="📋 Промокоды", callback_data="admin_list_promo")],
 
-        [InlineKeyboardButton(text="📢 Рассылка в ЛС", callback_data="admin_broadcast"), InlineKeyboardButton(text="📣 Рассылка в чаты", callback_data="admin_group_broadcast")],
+        [InlineKeyboardButton(text="📢 Рассылка в ЛС", callback_data="admin_broadcast"), InlineKeyboardButton(text="📣 Рассылка в чаты", callback_data="admin_group_broadcast")]
 
+        [InlineKeyboardButton(text="💬 Статистика чатов", callback_data="admin_groups_stats")],
+        
         [InlineKeyboardButton(text="💾 Скачать базу", callback_data="admin_backup"), InlineKeyboardButton(text="🔄 Обновить", callback_data="admin_refresh")]
 
     ])
@@ -1645,6 +1819,120 @@ async def process_broadcast(message: types.Message):
             pass
 
     await message.answer(f"✅ <b>Рассылка в ЛС завершена!</b>\nДоставлено: <b>{sent}</b> из {len(users)} игроков.", parse_mode="HTML")
+
+
+
+
+
+@dp.callback_query(F.data == "admin_groups_stats")
+
+async def cb_admin_groups_stats(call: types.CallbackQuery):
+
+    if call.from_user.id != ADMIN_ID:
+
+        return
+
+    cur.execute(
+
+        "SELECT chat_id, title, members_count, actions_count, last_active "
+
+        "FROM groups ORDER BY actions_count DESC LIMIT 15"
+
+    )
+
+    rows = cur.fetchall()
+
+    if not rows:
+
+        return await call.answer("Бот пока не добавлен ни в один чат!", show_alert=True)
+
+ 
+
+    cur.execute("SELECT COUNT(*), SUM(members_count), SUM(actions_count) FROM groups")
+
+    total_chats, total_members, total_actions = cur.fetchone()
+
+ 
+
+    text = (
+
+        f"💬 <b>Статистика групповых чатов</b>\n"
+
+        f"∙ Всего групп: <b>{total_chats}</b> | Участников: <b>{total_members or 0}</b>\n"
+
+        f"∙ Всего действий в чатах: <b>{total_actions or 0}</b>\n\n"
+
+        f"<b>Топ-15 активных чатов:</b>\n"
+
+    )
+
+    for idx, (cid, title, members, actions, last_ts) in enumerate(rows, start=1):
+
+        clean_title = (title or "Чат").replace("<", "").replace(">", "")
+
+        dt = datetime.fromtimestamp(last_ts).strftime("%d.%m %H:%M") if last_ts else "—"
+
+        text += (
+
+            f"{idx}. <b>{clean_title}</b> (👥 {members or '?'})\n"
+
+            f"   └ Действий: <b>{actions or 0}</b> | Актив: <code>{dt}</code>\n"
+
+        )
+
+ 
+
+    kb = InlineKeyboardMarkup(inline_keyboard=[
+
+        [InlineKeyboardButton(text="🔄 Обновить участников", callback_data="admin_groups_refresh")],
+
+        [InlineKeyboardButton(text="⬅️ Назад в админку", callback_data="admin_refresh")]
+
+    ])
+
+    await call.message.edit_text(text, parse_mode="HTML", reply_markup=kb)
+
+ 
+
+ 
+
+@dp.callback_query(F.data == "admin_groups_refresh")
+
+async def cb_admin_groups_refresh(call: types.CallbackQuery):
+
+    if call.from_user.id != ADMIN_ID:
+
+        return
+
+    await call.answer("Обновляю данные по чатам...")
+
+    cur.execute("SELECT chat_id FROM groups")
+
+    chats = cur.fetchall()
+
+    for (cid,) in chats:
+
+        try:
+
+            chat_obj = await bot.get_chat(cid)
+
+            m_count = await bot.get_chat_member_count(cid)
+
+            cur.execute(
+
+                "UPDATE groups SET title = ?, members_count = ? WHERE chat_id = ?",
+
+                (chat_obj.title or "Чат", m_count, cid)
+
+            )
+
+        except Exception:
+
+            cur.execute("DELETE FROM groups WHERE chat_id = ?", (cid,))
+
+    db.commit()
+
+    await cb_admin_groups_stats(call)
 
  
 
