@@ -1037,19 +1037,41 @@ async def cmd_ref_text(message: types.Message):
 
     get_user(uid, message.from_user.username)
 
-    text, ref_link = get_ref_text(uid)
-
-    share_url = f"https://t.me{quote(ref_link)}"
+    text, _ = get_ref_text(uid)
 
     kb = InlineKeyboardMarkup(inline_keyboard=[
-
-        [InlineKeyboardButton(text="📤 Отправить ссылку другу", url=share_url)],
 
         [InlineKeyboardButton(text="🎴 Моя карточка", callback_data=f"back_{uid}")]
 
     ])
 
     await message.answer(text, parse_mode="HTML", reply_markup=kb)
+
+ 
+
+ 
+
+@dp.callback_query(F.data.startswith("ref_"))
+
+async def cb_ref(call: types.CallbackQuery):
+
+    _, target_str = call.data.split("_")
+
+    target_id = int(target_str)
+
+    if not check_owner(call, target_id):
+
+        return await call.answer("Открой свою ссылку командой /ref", show_alert=True)
+
+    text, _ = get_ref_text(target_id)
+
+    kb = InlineKeyboardMarkup(inline_keyboard=[
+
+        [InlineKeyboardButton(text="⬅️ Вернуться к герою", callback_data=f"back_{target_id}")]
+
+    ])
+
+    await send_or_edit_screen(call.message, text, kb, photo_id="", is_edit=True)
 
  
 
