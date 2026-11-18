@@ -1493,10 +1493,6 @@ async def admin_restore_db(message: types.Message):
 
         cur = db.cursor()
 
-        cur.execute("DROP TABLE IF EXISTS referrals")
-
-        db.commit()
-
         init_db()
 
  
@@ -1505,13 +1501,19 @@ async def admin_restore_db(message: types.Message):
 
         (users_count,) = cur.fetchone()
 
+        cur.execute("SELECT COUNT(*) FROM referrals WHERE rewarded = 1")
+
+        (refs_count,) = cur.fetchone()
+
  
 
         await message.reply(
 
-            f"✅ <b>База восстановлена, а реферальная система обновлена!</b>\n"
+            f"✅ <b>База данных успешно восстановлена!</b>\n"
 
-            f"👥 Загружено игроков: <b>{users_count} чел.</b>",
+            f"👥 Игроков в базе: <b>{users_count} чел.</b>\n"
+
+            f"🤝 Сохранено рефералов: <b>{refs_count} чел.</b>",
 
             parse_mode="HTML"
 
@@ -1524,9 +1526,6 @@ async def admin_restore_db(message: types.Message):
         cur = db.cursor()
 
         await message.reply(f"❌ <b>Ошибка при восстановлении:</b>\n<code>{e}</code>", parse_mode="HTML")
-
-    await message.reply("✅ <b>База восстановлена, а таблицы промокодов обновлены!</b>", parse_mode="HTML")
-
 
 
 
