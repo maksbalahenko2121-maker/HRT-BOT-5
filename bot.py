@@ -706,7 +706,9 @@ def get_ref_text(uid: int):
 
     clean_bot = BOT_USERNAME.replace("@", "").strip()
 
-    ref_link = f"https://t.me{clean_bot}?start={uid}"
+    slash = chr(47)
+
+    ref_link = f"https:{slash}{slash}t.me{slash}{clean_bot}?start={uid}"
 
     cur.execute("SELECT COUNT(*) FROM referrals WHERE referrer_id = ? AND rewarded = 1", (uid,))
 
