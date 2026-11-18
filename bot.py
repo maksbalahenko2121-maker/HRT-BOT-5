@@ -2624,9 +2624,6 @@ async def set_bot_commands():
  
 
  
-
-async def main():
-
 # --- ПЕРЕВОДЧИК НА ЯЗЫК ЦУНДЕРЕ (100 ФРАЗ + СТИКЕРЫ) ---
 
 TSUNDERE_STICKERS = [
@@ -2849,7 +2846,81 @@ TSUNDERE_PHRASES = [
 
     "С-сплошной разврат у тебя в голове, извращенец! Запоминай: «{text}» 😤🔞",
 
-    ]
+]
+
+
+
+
+@dp.message(F.text.lower().startswith("цундере"))
+
+async def handle_tsundere_translator(message: types.Message):
+
+    raw_text = (message.text or "").strip()
+
+    parts = raw_text.split(maxsplit=1)
+
+ 
+
+    target_text = ""
+
+    if len(parts) == 2:
+
+        _, arg_text = parts
+
+        target_text = arg_text.strip()
+
+    elif message.reply_to_message:
+
+        target_text = (message.reply_to_message.text or message.reply_to_message.caption or "").strip()
+
+ 
+
+    if not target_text:
+
+        return await message.reply(
+
+            "😤 <b>Б-бака!</b> Напиши <code>цундере [текст]</code> или ответь словом <code>цундере</code> на сообщение друга!",
+
+            parse_mode="HTML"
+
+        )
+
+ 
+
+    clean_text = target_text.replace("<", "").replace(">", "").replace("&", "")
+
+    if len(clean_text) > 300:
+
+        clean_text = clean_text[:297] + "..."
+
+ 
+
+    if TSUNDERE_STICKERS:
+
+        try:
+
+            await message.answer_sticker(random.choice(TSUNDERE_STICKERS))
+
+        except Exception:
+
+            pass
+
+ 
+
+    result = random.choice(TSUNDERE_PHRASES).format(text=clean_text)
+
+    if message.reply_to_message:
+
+        await message.reply_to_message.reply(result, parse_mode="HTML")
+
+    else:
+
+        await message.reply(result, parse_mode="HTML")
+
+
+
+
+async def main():
     
     await set_bot_commands()
 
