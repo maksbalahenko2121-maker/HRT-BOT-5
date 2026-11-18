@@ -452,14 +452,9 @@ def bottom_menu_keyboard():
 
         resize_keyboard=True,
 
-        is_persistent=True,
-
-        one_time_keyboard=False,
-
-        input_field_placeholder="Выбери действие из меню ниже..."
+        one_time_keyboard=True
 
     )
-
  
 
  
