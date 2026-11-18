@@ -1437,10 +1437,10 @@ def get_admin_dashboard():
 
         [InlineKeyboardButton(text="🎟 Создать промокод", callback_data="admin_new_promo"), InlineKeyboardButton(text="📋 Промокоды", callback_data="admin_list_promo")],
 
-        [InlineKeyboardButton(text="📢 Рассылка в ЛС", callback_data="admin_broadcast"), InlineKeyboardButton(text="📣 Рассылка в чаты", callback_data="admin_group_broadcast")]
+        [InlineKeyboardButton(text="📢 Рассылка в ЛС", callback_data="admin_broadcast"), InlineKeyboardButton(text="📣 Рассылка в чаты", callback_data="admin_group_broadcast")],
 
         [InlineKeyboardButton(text="💬 Статистика чатов", callback_data="admin_groups_stats")],
-        
+
         [InlineKeyboardButton(text="💾 Скачать базу", callback_data="admin_backup"), InlineKeyboardButton(text="🔄 Обновить", callback_data="admin_refresh")]
 
     ])
