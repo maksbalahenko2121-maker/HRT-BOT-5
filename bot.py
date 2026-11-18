@@ -48,6 +48,8 @@ BOT_TOKEN = "9297074957:AAHH0SfGcccDMoJE0a4XuPRrAI1aa97UvGk"
 
 ADMIN_ID = 6921885296
 
+BOT_USERNAME = "AnimeEnergNFTBot"
+
 COOLDOWN = 3 * 3600
 
  
@@ -700,9 +702,9 @@ def get_top_text():
 
  
 
-def get_ref_text(uid: int, bot_username: str):
+def get_ref_text(uid: int):
 
-    clean_bot = (bot_username or "").replace("@", "").strip()
+    clean_bot = BOT_USERNAME.replace("@", "").strip()
 
     ref_link = f"https://t.me{clean_bot}?start={uid}"
 
@@ -741,6 +743,8 @@ def get_ref_text(uid: int, bot_username: str):
     )
 
     return text, ref_link
+
+
 
 
 
@@ -1033,17 +1037,7 @@ async def cmd_ref_text(message: types.Message):
 
     get_user(uid, message.from_user.username)
 
-    try:
-
-        bot_info = await bot.get_me()
-
-        b_uname = bot_info.username
-
-    except Exception:
-
-        b_uname = ""
-
-    text, ref_link = get_ref_text(uid, b_uname)
+    text, ref_link = get_ref_text(uid)
 
     share_url = f"https://t.me{quote(ref_link)}"
 
@@ -1056,6 +1050,38 @@ async def cmd_ref_text(message: types.Message):
     ])
 
     await message.answer(text, parse_mode="HTML", reply_markup=kb)
+
+ 
+
+ 
+
+@dp.callback_query(F.data.startswith("ref_"))
+
+async def cb_ref(call: types.CallbackQuery):
+
+    _, target_str = call.data.split("_")
+
+    target_id = int(target_str)
+
+    if not check_owner(call, target_id):
+
+        return await call.answer("Открой свою ссылку командой /ref", show_alert=True)
+
+    text, ref_link = get_ref_text(target_id)
+
+    share_url = f"https://t.me{quote(ref_link)}"
+
+    kb = InlineKeyboardMarkup(inline_keyboard=[
+
+        [InlineKeyboardButton(text="📤 Отправить ссылку другу", url=share_url)],
+
+        [InlineKeyboardButton(text="⬅️ Вернуться к герою", callback_data=f"back_{target_id}")]
+
+    ])
+
+    await send_or_edit_screen(call.message, text, kb, photo_id="", is_edit=True)
+
+
  
 
  
