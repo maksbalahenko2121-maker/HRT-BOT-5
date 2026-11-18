@@ -346,6 +346,10 @@ def init_db():
 
     db.commit()
 
+    cur.execute("CREATE TABLE IF NOT EXISTS settings (key TEXT PRIMARY KEY, value TEXT)")
+
+    cur.execute("INSERT OR IGNORE INTO settings (key, value) VALUES ('maintenance', '0')")
+
  
 
  
@@ -353,6 +357,69 @@ def init_db():
 init_db()
 
 @dp.message.outer_middleware()
+
+def is_maintenance() -> bool:
+
+    cur.execute("SELECT value FROM settings WHERE key = 'maintenance'")
+
+    row = cur.fetchone()
+
+    return row is not None and row[0] == "1"
+
+ 
+
+ 
+
+@dp.update.outer_middleware()
+
+async def maintenance_middleware(handler, event: types.Update, data: dict):
+
+    user = None
+
+    if event.message:
+
+        user = event.message.from_user
+
+    elif event.callback_query:
+
+        user = event.callback_query.from_user
+
+ 
+
+    if user and user.id != ADMIN_ID and is_maintenance():
+
+        text = (
+
+            "🛠 <b>АНИМЕ-КАЧАЛКА НА ТЕХ. ОБСЛУЖИВАНИИ!</b>\n\n"
+
+            "Сенсей прямо сейчас настраивает чакру, обновляет героев и полирует сервера. "
+
+            "Весь твой прогресс надёжно сохранён!\n\n"
+
+            "⏳ <i>Загляни чуть позже — как только закончим, мы сразу пришлём уведомление!</i>"
+
+        )
+
+        try:
+
+            if event.callback_query:
+
+                await event.callback_query.answer("🛠 Бот на тех. обслуживании! Скоро вернёмся!", show_alert=True)
+
+            elif event.message and event.message.chat.type == "private":
+
+                await event.message.answer(text, parse_mode="HTML")
+
+        except Exception:
+
+            pass
+
+        return
+
+ 
+
+    return await handler(event, data)
+
 
 async def track_groups_middleware(handler, event: types.Message, data: dict):
 
@@ -1407,9 +1474,19 @@ def get_admin_dashboard():
 
  
 
+    maint = is_maintenance()
+
+    status_line = "🔴 <b>НА ТЕХ. ОБСЛУЖИВАНИИ</b>" if maint else "🟢 <b>РАБОТАЕТ В ШТАТНОМ РЕЖИМЕ</b>"
+
+    toggle_btn_text = "🟢 Включить бота (Разослать всем)" if maint else "🔴 Выключить на тех. работы"
+
+ 
+
     text = (
 
-        f"👑 <b>Админ-панель и Аналитика</b>\n\n"
+        f"👑 <b>Админ-панель и Аналитика</b>\n"
+
+        f"📡 Статус: {status_line}\n\n"
 
         f"👥 <b>Аудитория:</b>\n"
 
@@ -1430,6 +1507,8 @@ def get_admin_dashboard():
     )
 
     kb = InlineKeyboardMarkup(inline_keyboard=[
+
+        [InlineKeyboardButton(text=toggle_btn_text, callback_data="admin_toggle_maint")],
 
         [InlineKeyboardButton(text=f"🎁 Заявки на подарки ({pending_claims})", callback_data="admin_claims")],
 
@@ -1601,6 +1680,94 @@ async def cb_admin_list_promo(call: types.CallbackQuery):
 
  
 
+@dp.callback_query(F.data == "admin_toggle_maint")
+
+async def cb_admin_toggle_maint(call: types.CallbackQuery):
+
+    if call.from_user.id != ADMIN_ID:
+
+        return
+
+ 
+
+    new_state = "0" if is_maintenance() else "1"
+
+    cur.execute("INSERT OR REPLACE INTO settings (key, value) VALUES ('maintenance', ?)", (new_state,))
+
+    db.commit()
+
+ 
+
+    text, kb = get_admin_dashboard()
+
+    await call.message.edit_text(text, parse_mode="HTML", reply_markup=kb)
+
+    await call.answer("Статус изменён! Запускаю рассылку игрокам...")
+
+ 
+
+    cur.execute("SELECT user_id FROM users")
+
+    users = cur.fetchall()
+
+ 
+
+    if new_state == "1":
+
+        notify_msg = (
+
+            "🛠 <b>ВНИМАНИЕ, СЕНСЕИ! ТЕХНИЧЕСКИЕ РАБОТЫ</b>\n\n"
+
+            "Мы поставили качалку на короткую паузу, чтобы накатить крутое обновление и улучшить стабильность.\n\n"
+
+            "🔒 <i>Не переживайте: весь ваш уровень, чакра, рефералы и амулеты надёжно сохранены!</i>\n"
+
+            "🔔 Мы сразу напишем вам, как только откроем двери обратно!"
+
+        )
+
+    else:
+
+        notify_msg = (
+
+            "🎉 <b>МЫ ВЕРНУЛИСЬ! ТЕХ. РАБОТЫ ЗАВЕРШЕНЫ!</b>\n\n"
+
+            "Сервера отполированы, чакра кипит — <b>Аниме-Качалка снова открыта для всех!</b> ⚡\n\n"
+
+            "🔥 Залетайте в <b>/card</b>, собирайте энергию и продолжайте путь к редким NFT-подаркам!"
+
+        )
+
+ 
+
+    sent = 0
+
+    for (uid,) in users:
+
+        if uid == ADMIN_ID:
+
+            continue
+
+        try:
+
+            await bot.send_message(uid, notify_msg, parse_mode="HTML")
+
+            sent += 1
+
+            await asyncio.sleep(0.05)
+
+        except Exception:
+
+            pass
+
+ 
+
+    await call.message.answer(f"📨 <b>Оповещение о смене статуса завершено!</b>\nДоставлено: <b>{sent}</b> игрокам.", parse_mode="HTML")
+
+ 
+
+ 
+
 @dp.callback_query(F.data == "admin_backup")
 
 async def cb_admin_backup(call: types.CallbackQuery):
@@ -1609,20 +1776,49 @@ async def cb_admin_backup(call: types.CallbackQuery):
 
         return
 
+    await call.answer("Собираю полный снимок базы...")
+
     db.commit()
+
+ 
+
+    backup_path = "backup_full.db"
+
+    b_conn = sqlite3.connect(backup_path)
+
+    db.backup(b_conn)
+
+    b_conn.close()
+
+ 
+
+    cur.execute("SELECT COUNT(*) FROM users")
+
+    (u_cnt,) = cur.fetchone()
+
+    cur.execute("SELECT COUNT(*) FROM referrals")
+
+    (r_cnt,) = cur.fetchone()
+
+ 
 
     await call.message.answer_document(
 
-        document=FSInputFile("game_v2.db"),
+        document=FSInputFile(backup_path),
 
-        caption="💾 <b>Резервная копия базы данных.</b>\nЧтобы восстановить прогресс после обновления, просто отправьте этот файл обратно боту в личку.",
+        caption=(
+
+            f"💾 <b>Полная резервная копия базы данных!</b>\n"
+
+            f"👥 Игроков: <b>{u_cnt}</b> | 🤝 Рефералов: <b>{r_cnt}</b>\n\n"
+
+            f"<i>Сохранены все таблицы до мелочей. Для восстановления просто отправьте этот файл боту в личку.</i>"
+
+        ),
 
         parse_mode="HTML"
 
     )
-
-    await call.answer()
-
  
 
  
