@@ -364,7 +364,55 @@ def is_maintenance() -> bool:
 
     row = cur.fetchone()
 
-    return row is not None and row[0] == "1"
+    if not row:
+
+        return False
+
+    (val,) = row
+
+    return val == "1"
+
+ 
+
+ 
+
+async def check_maint_block(event) -> bool:
+
+    user = getattr(event, "from_user", None)
+
+    if not user or user.id == ADMIN_ID or not is_maintenance():
+
+        return False
+
+ 
+
+    text = (
+
+        "🛠 <b>АНИМЕ-КАЧАЛКА НА ТЕХ. ОБСЛУЖИВАНИИ!</b>\n\n"
+
+        "Сенсей прямо сейчас настраивает чакру, обновляет героев и полирует сервера. "
+
+        "Весь твой прогресс надёжно сохранён!\n\n"
+
+        "⏳ <i>Загляни чуть позже — как только закончим, мы сразу пришлём уведомление!</i>"
+
+    )
+
+    try:
+
+        if isinstance(event, types.CallbackQuery):
+
+            await event.answer("🛠 Бот на тех. обслуживании! Скоро вернёмся!", show_alert=True)
+
+        elif isinstance(event, types.Message) and event.chat.type == "private":
+
+            await event.answer(text, parse_mode="HTML")
+
+    except Exception:
+
+        pass
+
+    return True
 
  
 
@@ -423,6 +471,10 @@ async def maintenance_middleware(handler, event: types.Update, data: dict):
 
 
 async def track_groups_middleware(handler, event: types.Message, data: dict):
+
+    if await check_maint_block(event):
+
+        return
 
     if event.chat and event.chat.type in ("group", "supergroup"):
 
@@ -1056,8 +1108,11 @@ async def send_or_edit_card(target, user, is_edit=False):
 
 def check_owner(call: types.CallbackQuery, target_id: int):
 
-    return call.from_user.id == target_id
+    if call.from_user.id != ADMIN_ID and is_maintenance():
 
+        return False
+
+    return call.from_user.id == target_id
  
 
  
