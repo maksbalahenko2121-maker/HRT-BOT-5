@@ -2962,7 +2962,7 @@ async def handle_emoji_quiz_cmd(message: types.Message):
 
         quiz = active_emoji_quiz.get(cid)
 
-        if not quiz:
+ 
 active_emoji_quiz = {}
 
 used_quiz_indices = {}
