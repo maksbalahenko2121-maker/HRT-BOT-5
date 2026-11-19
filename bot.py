@@ -2899,6 +2899,53 @@ async def handle_chat_moderation(message: types.Message):
     now = int(time.time())
 
  
+@dp.message(F.reply_to_message, F.text)
+
+async def handle_chat_moderation(message: types.Message):
+
+    parts = (message.text or "").strip().lower().split()
+
+    cmd = parts.pop(0) if parts else ""
+
+    if message.chat.type not in ("group", "supergroup") or cmd not in ("бан", "разбан", "мут", "размут"):
+
+        return await handle_rp_commands(message)
+
+ 
+
+    is_boss = await is_chat_admin_or_creator(message.chat.id, message.from_user.id)
+
+    if not is_boss:
+
+        return await message.reply("⛔ <b>Эта техника доступна только создателю и админам чата!</b>", parse_mode="HTML")
+
+ 
+
+    target = message.reply_to_message.from_user
+
+    if target.id == bot.id:
+
+        return await message.reply("😤 Б-бака! Я сам себя запечатывать не буду!")
+
+ 
+
+    target_is_boss = await is_chat_admin_or_creator(message.chat.id, target.id)
+
+    if target_is_boss:
+
+        return await message.reply("🛡 Нельзя применить наказание к создателю или администратору!")
+
+ 
+
+    clean_name = (target.full_name or target.username or "Шиноби").replace("<", "").replace(">", "")
+
+    t_name = f"<b>{clean_name}</b>"
+
+    cid = message.chat.id
+
+    now = int(time.time())
+
+ 
 
     try:
 
@@ -2977,7 +3024,6 @@ async def handle_chat_moderation(message: types.Message):
     except Exception as e:
 
         await message.reply(f"⚠️ <b>Не удалось выполнить технику!</b>\nПричина: <code>{e}</code>", parse_mode="HTML")
-
 
  
 
