@@ -545,6 +545,50 @@ async def on_bot_added_to_group(event: types.ChatMemberUpdated):
 
         db.commit()
 
+ 
+
+        if new_status == "member":
+
+            welcome_group_msg = (
+
+                "👋 <b>Йо, шиноби! Спасибо, что добавили Аниме-Качалку в беседу!</b>\n\n"
+
+                "⚠️ <b>Важный шаг для запуска:</b>\n"
+
+                "Сейчас у меня нет доступа к переписке в чате. Чтобы работали <b>РП-команды</b> (<i>обнять, расэнган, угостить раменом</i>) и <b>переводчик на язык цундере</b>, выдайте мне <b>права администратора</b> в настройках группы!\n\n"
+
+                "📜 Список всех команд чата: <b>/rp</b>\n"
+
+                "🎴 Прокачка героев и призы: <b>/card</b>"
+
+            )
+
+        else:
+
+            welcome_group_msg = (
+
+                "🔥 <b>Аниме-Качалка успешно активирована в чате!</b>\n\n"
+
+                "✅ Права доступа получены — все игры и РП-команды уже работают!\n"
+
+                "🎭 Отвечайте на сообщения друзей словами из списка <b>/rp</b> или пишите <code>цундере</code>!\n"
+
+                "⚡ Прокачать своего героя: <b>/card</b>"
+
+            )
+
+ 
+
+        try:
+
+            await bot.send_message(cid, welcome_group_msg, parse_mode="HTML")
+
+        except Exception:
+
+            pass
+
+ 
+
         if is_new:
 
             try:
@@ -574,6 +618,8 @@ async def on_bot_added_to_group(event: types.ChatMemberUpdated):
         cur.execute("DELETE FROM groups WHERE chat_id = ?", (cid,))
 
         db.commit()
+
+
  
 
  
