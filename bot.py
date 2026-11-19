@@ -12,6 +12,8 @@ from datetime import datetime
 
 from urllib.parse import quote
 
+from quiz import ANIME_EMOJI_QUIZ
+
 from aiogram import Bot, Dispatcher, F, types
 
 from aiogram.filters import Command
