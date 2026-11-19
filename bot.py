@@ -2597,7 +2597,7 @@ def parse_duration(args_list: list) -> tuple[int, str]:
 
  
    
- @dp.message(F.reply_to_message, F.text)
+@dp.message(F.reply_to_message, F.text)
 
 async def handle_chat_moderation(message: types.Message):
 
