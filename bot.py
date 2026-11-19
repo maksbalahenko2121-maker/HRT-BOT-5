@@ -2710,17 +2710,107 @@ async def handle_chat_moderation(message: types.Message):
 
             perms = types.ChatPermissions(can_send_messages=False)
 
-            await bot.restrict_chat_member(cid, target.id, permissions=perms, until_date=until)
+@dp.message(F.reply_to_message, F.text)
+
+async def handle_chat_moderation(message: types.Message):
+
+    parts = (message.text or "").strip().lower().split()
+
+    cmd = parts.pop(0) if parts else ""
+
+    if message.chat.type not in ("group", "supergroup") or cmd not in ("бан", "разбан", "мут", "размут"):
+
+        return await handle_rp_commands(message)
 
  
 
-            cur.execute(
+    is_boss = await is_chat_admin_or_creator(message.chat.id, message.from_user.id)
 
-                "INSERT OR REPLACE INTO chat_punishments (chat_id, user_id, user_name, p_type, until_ts) VALUES (?, ?, ?, 'mute', ?)",
+    if not is_boss:
 
-                (cid, target.id, clean_name, until)
+        return await message.reply("⛔ <b>Эта техника доступна только создателю и админам чата!</b>", parse_mode="HTML")
 
-            )
+ 
+
+    target = message.reply_to_message.from_user
+
+    if target.id == bot.id:
+
+        return await message.reply("😤 Б-бака! Я сам себя запечатывать не буду!")
+
+ 
+
+    target_is_boss = await is_chat_admin_or_creator(message.chat.id, target.id)
+
+    if target_is_boss:
+
+        return await message.reply("🛡 Нельзя применить наказание к создателю или администратору!")
+
+ 
+
+    clean_name = (target.full_name or target.username or "Шиноби").replace("<", "").replace(">", "")
+
+    t_name = f"<b>{clean_name}</b>"
+
+    cid = message.chat.id
+
+    now = int(time.time())
+
+ 
+
+    try:
+
+        if cmd == "бан":
+
+            seconds, label = parse_duration(parts)
+
+            until = (now + seconds) if seconds > 0 else 0
+
+            dur_text = f"на {label}" if seconds > 0 else "навсегда"
+
+            if seconds > 0:
+
+                await bot.ban_chat_member(cid, target.id, until_date=until)
+
+            else:
+
+                await bot.ban_chat_member(cid, target.id)
+
+            cur.execute("INSERT OR REPLACE INTO chat_punishments (chat_id, user_id, user_name, p_type, until_ts) VALUES (?, ?, ?, 'ban', ?)", (cid, target.id, clean_name, until))
+
+            db.commit()
+
+            await message.answer(random.choice(BAN_TEXTS).format(t_name=t_name, dur=dur_text), parse_mode="HTML")
+
+ 
+
+        elif cmd == "разбан":
+
+            await bot.unban_chat_member(cid, target.id, only_if_banned=True)
+
+            cur.execute("DELETE FROM chat_punishments WHERE chat_id = ? AND user_id = ? AND p_type = 'ban'", (cid, target.id))
+
+            db.commit()
+
+            await message.answer(random.choice(UNBAN_TEXTS).format(t_name=t_name), parse_mode="HTML")
+
+ 
+
+        elif cmd == "мут":
+
+            seconds, label = parse_duration(parts)
+
+            if seconds == 0:
+
+                seconds, label = 3600, "60 мин."
+
+            until = now + seconds
+
+            perms = types.ChatPermissions(can_send_messages=False)
+
+            await bot.restrict_chat_member(cid, target.id, permissions=perms, until_date=until)
+
+            cur.execute("INSERT OR REPLACE INTO chat_punishments (chat_id, user_id, user_name, p_type, until_ts) VALUES (?, ?, ?, 'mute', ?)", (cid, target.id, clean_name, until))
 
             db.commit()
 
@@ -2730,29 +2820,7 @@ async def handle_chat_moderation(message: types.Message):
 
         elif cmd == "размут":
 
-            perms = types.ChatPermissions(
-
-                can_send_messages=True,
-
-                can_send_audios=True,
-
-                can_send_documents=True,
-
-                can_send_photos=True,
-
-                can_send_videos=True,
-
-                can_send_video_notes=True,
-
-                can_send_voice_notes=True,
-
-                can_send_polls=True,
-
-                can_send_other_messages=True,
-
-                can_add_web_page_previews=True,
-
-            )
+            perms = types.ChatPermissions(can_send_messages=True, can_send_audios=True, can_send_documents=True, can_send_photos=True, can_send_videos=True, can_send_video_notes=True, can_send_voice_notes=True, can_send_polls=True, can_send_other_messages=True, can_add_web_page_previews=True)
 
             await bot.restrict_chat_member(cid, target.id, permissions=perms)
 
@@ -2766,21 +2834,7 @@ async def handle_chat_moderation(message: types.Message):
 
     except Exception as e:
 
-        err_text = str(e)
-
-        if "supergroup" in err_text.lower() or "chat_admin_required" in err_text.lower():
-
-            hint = "Переведите чат в режим <b>Супергруппы</b> (включите «Видимую историю чата» в настройках группы) и проверьте право <b>«Блокировка пользователей»</b> у бота."
-
-        elif "user_is_administrator" in err_text.lower() or "can't remove chat owner" in err_text.lower():
-
-            hint = "Telegram запрещает мутить и банить создателя или администраторов чата."
-
-        else:
-
-            hint = f"Техническая причина: <code>{err_text}</code>"
-
-        await message.reply(f"⚠️ <b>Не удалось выполнить технику!</b>\n{hint}", parse_mode="HTML")
+        await message.reply(f"⚠️ <b>Не удалось выполнить технику!</b>\nПричина: <code>{e}</code>", parse_mode="HTML")
  
 
  
