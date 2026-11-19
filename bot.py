@@ -350,6 +350,26 @@ def init_db():
 
     cur.execute("INSERT OR IGNORE INTO settings (key, value) VALUES ('maintenance', '0')")
 
+    cur.execute("""
+
+    CREATE TABLE IF NOT EXISTS chat_punishments (
+
+        chat_id INTEGER,
+
+        user_id INTEGER,
+
+        user_name TEXT,
+
+        p_type TEXT,
+
+        until_ts INTEGER,
+
+        PRIMARY KEY (chat_id, user_id, p_type)
+
+    )
+
+    """)
+
  
 
  
@@ -555,7 +575,7 @@ async def on_bot_added_to_group(event: types.ChatMemberUpdated):
 
                 "⚠️ <b>Важный шаг для запуска:</b>\n"
 
-                "Сейчас у меня нет доступа к переписке в чате. Чтобы работали <b>РП-команды</b> (<i>обнять, расэнган, угостить раменом</i>) и <b>переводчик на язык цундере</b>, выдайте мне <b>права администратора</b> в настройках группы!\n\n"
+                "Сейчас у меня нет доступа к переписке в чате. Чтобы работали <b>РП-команды</b> (<i>обнять, расэнган, угостить раменом</i>), <b>переводчик цундере</b> и <b>модерация</b>, выдайте мне <b>права администратора</b> в настройках группы!\n\n"
 
                 "📜 Список всех команд чата: <b>/rp</b>\n"
 
@@ -569,7 +589,7 @@ async def on_bot_added_to_group(event: types.ChatMemberUpdated):
 
                 "🔥 <b>Аниме-Качалка успешно активирована в чате!</b>\n\n"
 
-                "✅ Права доступа получены — все игры и РП-команды уже работают!\n"
+                "✅ Права доступа получены — все игры, модерация и РП-команды уже работают!\n"
 
                 "🎭 Отвечайте на сообщения друзей словами из списка <b>/rp</b> или пишите <code>цундере</code>!\n"
 
@@ -2400,6 +2420,400 @@ async def cb_done_claim(call: types.CallbackQuery):
     await call.answer("Заявка закрыта!", show_alert=True)
 
     await cb_admin_claims(call)
+
+BAN_TEXTS = [
+
+    "🔨 <b>Техника запечатывания Шинигами!</b> {t_name} изгнан(а) из беседы <b>{dur}</b>!",
+
+    "🌀 <b>Камуи!</b> {t_name} отправлен(а) в другое измерение <b>{dur}</b>!",
+
+    "💥 <b>Аматерасу!</b> {t_name} выжжен(а) из списка участников <b>{dur}</b>!",
+
+    "⚔️ <b>Райкири в бан-лист!</b> {t_name} покидает нашу деревню <b>{dur}</b>!",
+
+]
+
+ 
+
+UNBAN_TEXTS = [
+
+    "🕊 <b>Эдо Тенсей!</b> {t_name} воскрешён(а) и снова может вернуться в беседу!",
+
+    "✨ <b>Печать снята!</b> {t_name} официально разбанен(а) — двери Конохи снова открыты!",
+
+]
+
+ 
+
+MUTE_TEXTS = [
+
+    "🔇 <b>Техника теневого молчания!</b> {t_name} запечатал(а) рот <b>на {dur}</b>!",
+
+    "🤐 <b>Гендзюцу тишины!</b> {t_name} отправлен(а) медитировать в мут <b>на {dur}</b>!",
+
+    "🍙 <b>Рот забит онигири!</b> {t_name} не сможет писать в чат <b>{dur}</b>!",
+
+    "⚡ <b>Чидори по клавиатуре!</b> {t_name} отдыхает в муте <b>{dur}</b>!",
+
+]
+
+ 
+
+UNMUTE_TEXTS = [
+
+    "🔊 <b>Кай! Гендзюцу рассеяно!</b> С {t_name} снят мут, снова можно болтать!",
+
+    "🎉 <b>Голос вернулся!</b> {t_name} снова в строю и может писать в беседу!",
+
+]
+
+ 
+
+ 
+
+async def is_chat_admin_or_creator(chat_id: int, user_id: int) -> bool:
+
+    if user_id == ADMIN_ID:
+
+        return True
+
+    try:
+
+        member = await bot.get_chat_member(chat_id, user_id)
+
+        if member.status in ("creator", "administrator"):
+
+            return True
+
+    except Exception:
+
+        pass
+
+    return False
+
+ 
+
+ 
+
+def parse_duration(args_list: list) -> tuple[int, str]:
+
+    if not args_list:
+
+        return 0, "навсегда"
+
+ 
+
+    num_str = ""
+
+    unit_str = ""
+
+    for item in args_list:
+
+        digits = "".join(ch for ch in item if ch.isdigit())
+
+        letters = "".join(ch for ch in item if ch.isalpha())
+
+        if digits and not num_str:
+
+            num_str = digits
+
+        if letters and not unit_str:
+
+            unit_str = letters
+
+ 
+
+    if not num_str:
+
+        return 0, "навсегда"
+
+ 
+
+    val = int(num_str)
+
+    if val <= 0:
+
+        return 0, "навсегда"
+
+ 
+
+    if unit_str.startswith("с") or unit_str.startswith("s"):
+
+        return max(val, 35), f"{val} сек."
+
+    if unit_str.startswith("ч") or unit_str.startswith("h"):
+
+        return val * 3600, f"{val} ч."
+
+    if unit_str.startswith("д") or unit_str.startswith("d"):
+
+        return val * 86400, f"{val} дн."
+
+    if unit_str.startswith("н") or unit_str.startswith("w"):
+
+        return val * 604800, f"{val} нед."
+
+    if unit_str.startswith("мес") or unit_str.startswith("mo"):
+
+        return val * 2592000, f"{val} мес."
+
+ 
+
+    return val * 60, f"{val} мин."
+
+ 
+
+ 
+
+@dp.message(F.reply_to_message, F.text)
+
+async def handle_chat_moderation(message: types.Message):
+
+    if message.chat.type not in ("group", "supergroup"):
+
+        return
+
+ 
+
+    raw = (message.text or "").strip().lower()
+
+    parts = raw.split()
+
+    if not parts:
+
+        return
+
+ 
+
+    cmd, *rest = parts
+
+    if cmd not in ("бан", "разбан", "мут", "размут"):
+
+        return
+
+ 
+
+    if not await is_chat_admin_or_creator(message.chat.id, message.from_user.id):
+
+        return await message.reply("⛔ <b>Эта техника доступна только создателю и админам чата!</b>", parse_mode="HTML")
+
+ 
+
+    target = message.reply_to_message.from_user
+
+    if target.id == bot.id:
+
+        return await message.reply("😤 Б-бака! Я сам себя запечатывать не буду!")
+
+    if await is_chat_admin_or_creator(message.chat.id, target.id):
+
+        return await message.reply("🛡 Нельзя применить наказание к создателю или администратору!")
+
+ 
+
+    clean_name = (target.full_name or target.username or "Шиноби").replace("<", "").replace(">", "")
+
+    t_name = f"<b>{clean_name}</b>"
+
+    cid = message.chat.id
+
+    now = int(time.time())
+
+ 
+
+    try:
+
+        if cmd == "бан":
+
+            seconds, label = parse_duration(rest)
+
+            if seconds > 0:
+
+                until = now + seconds
+
+                await bot.ban_chat_member(cid, target.id, until_date=until)
+
+                dur_text = f"на {label}"
+
+            else:
+
+                until = 0
+
+                await bot.ban_chat_member(cid, target.id)
+
+                dur_text = "навсегда"
+
+ 
+
+            cur.execute(
+
+                "INSERT OR REPLACE INTO chat_punishments (chat_id, user_id, user_name, p_type, until_ts) VALUES (?, ?, ?, 'ban', ?)",
+
+                (cid, target.id, clean_name, until)
+
+            )
+
+            db.commit()
+
+            await message.answer(random.choice(BAN_TEXTS).format(t_name=t_name, dur=dur_text), parse_mode="HTML")
+
+ 
+
+        elif cmd == "разбан":
+
+            await bot.unban_chat_member(cid, target.id, only_if_banned=True)
+
+            cur.execute("DELETE FROM chat_punishments WHERE chat_id = ? AND user_id = ? AND p_type = 'ban'", (cid, target.id))
+
+            db.commit()
+
+            await message.answer(random.choice(UNBAN_TEXTS).format(t_name=t_name), parse_mode="HTML")
+
+ 
+
+        elif cmd == "мут":
+
+            seconds, label = parse_duration(rest)
+
+            if seconds == 0:
+
+                seconds, label = 3600, "60 мин."
+
+            until = now + seconds
+
+            perms = types.ChatPermissions(can_send_messages=False)
+
+            await bot.restrict_chat_member(cid, target.id, permissions=perms, until_date=until)
+
+ 
+
+            cur.execute(
+
+                "INSERT OR REPLACE INTO chat_punishments (chat_id, user_id, user_name, p_type, until_ts) VALUES (?, ?, ?, 'mute', ?)",
+
+                (cid, target.id, clean_name, until)
+
+            )
+
+            db.commit()
+
+            await message.answer(random.choice(MUTE_TEXTS).format(t_name=t_name, dur=label), parse_mode="HTML")
+
+ 
+
+        elif cmd == "размут":
+
+            perms = types.ChatPermissions(
+
+                can_send_messages=True,
+
+                can_send_audios=True,
+
+                can_send_documents=True,
+
+                can_send_photos=True,
+
+                can_send_videos=True,
+
+                can_send_video_notes=True,
+
+                can_send_voice_notes=True,
+
+                can_send_polls=True,
+
+                can_send_other_messages=True,
+
+                can_add_web_page_previews=True,
+
+            )
+
+            await bot.restrict_chat_member(cid, target.id, permissions=perms)
+
+            cur.execute("DELETE FROM chat_punishments WHERE chat_id = ? AND user_id = ? AND p_type = 'mute'", (cid, target.id))
+
+            db.commit()
+
+            await message.answer(random.choice(UNMUTE_TEXTS).format(t_name=t_name), parse_mode="HTML")
+
+ 
+
+    except Exception as e:
+
+        await message.reply(f"⚠️ Не удалось выполнить технику. Проверьте права администратора у бота!\n<code>{e}</code>", parse_mode="HTML")
+
+ 
+
+ 
+
+@dp.message(F.text.lower().in_({"список мутов", "список банов"}))
+
+async def handle_punishments_list(message: types.Message):
+
+    if message.chat.type not in ("group", "supergroup"):
+
+        return
+
+ 
+
+    cmd = message.text.strip().lower()
+
+    p_type = "mute" if "мут" in cmd else "ban"
+
+    cid = message.chat.id
+
+    now = int(time.time())
+
+ 
+
+    cur.execute("DELETE FROM chat_punishments WHERE chat_id = ? AND until_ts > 0 AND until_ts <= ?", (cid, now))
+
+    db.commit()
+
+ 
+
+    cur.execute(
+
+        "SELECT user_id, user_name, until_ts FROM chat_punishments WHERE chat_id = ? AND p_type = ?",
+
+        (cid, p_type)
+
+    )
+
+    rows = cur.fetchall()
+
+ 
+
+    if not rows:
+
+        empty_msg = "🟢 <b>В этом чате сейчас никто не сидит в муте!</b>" if p_type == "mute" else "🟢 <b>Список забаненных в этом чате пуст!</b>"
+
+        return await message.reply(empty_msg, parse_mode="HTML")
+
+ 
+
+    header = "🔇 <b>Список замученных в чате:</b>\n\n" if p_type == "mute" else "🔨 <b>Список забаненных в чате:</b>\n\n"
+
+    text = header
+
+    for idx, (uid, uname, until_ts) in enumerate(rows, start=1):
+
+        if until_ts == 0:
+
+            time_left = "навсегда"
+
+        else:
+
+            dt = datetime.fromtimestamp(until_ts).strftime("%d.%m в %H:%M")
+
+            time_left = f"до <code>{dt}</code>"
+
+        text += f"{idx}. <b>{uname}</b> (ID: <code>{uid}</code>) — {time_left}\n"
+
+ 
+
+    await message.reply(text, parse_mode="HTML")
+
+
 
 @dp.message(Command("rp"))
 
