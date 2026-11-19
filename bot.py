@@ -352,7 +352,7 @@ def init_db():
 
     cur.execute("""
 
-    CREATE TABLE IF NOT EXISTS chat_members (
+    CREATE TABLE IF NOT EXISTS chat_punishments (
 
         chat_id INTEGER,
 
@@ -360,18 +360,16 @@ def init_db():
 
         user_name TEXT,
 
-        msg_total INTEGER DEFAULT 0,
+        p_type TEXT,
 
-        msg_today INTEGER DEFAULT 0,
+        until_ts INTEGER,
 
-        last_msg_ts INTEGER DEFAULT 0,
-
-        PRIMARY KEY (chat_id, user_id)
+        PRIMARY KEY (chat_id, user_id, p_type)
 
     )
 
     """)
-
+    
     db.commit()
 
 
@@ -2774,8 +2772,21 @@ async def handle_chat_moderation(message: types.Message):
 
     except Exception as e:
 
-        await message.reply(f"⚠️ Не удалось выполнить технику. Проверьте права администратора у бота!\n<code>{e}</code>", parse_mode="HTML")
+        err_text = str(e)
 
+        if "supergroup" in err_text.lower() or "chat_admin_required" in err_text.lower():
+
+            hint = "Переведите чат в режим <b>Супергруппы</b> (включите «Видимую историю чата» в настройках группы) и проверьте право <b>«Блокировка пользователей»</b> у бота."
+
+        elif "user_is_administrator" in err_text.lower() or "can't remove chat owner" in err_text.lower():
+
+            hint = "Telegram запрещает мутить и банить создателя или администраторов чата."
+
+        else:
+
+            hint = f"Техническая причина: <code>{err_text}</code>"
+
+        await message.reply(f"⚠️ <b>Не удалось выполнить технику!</b>\n{hint}", parse_mode="HTML")
  
 
  
