@@ -1456,8 +1456,6 @@ def get_admin_dashboard():
 
     status_line = "🔴 <b>НА ТЕХ. ОБСЛУЖИВАНИИ</b>" if maint else "🟢 <b>РАБОТАЕТ В ШТАТНОМ РЕЖИМЕ</b>"
 
-    toggle_btn_text = "🟢 Включить бота (Разослать всем)" if maint else "🔴 Выключить на тех. работы"
-
  
 
     text = (
@@ -1486,19 +1484,27 @@ def get_admin_dashboard():
 
     kb = InlineKeyboardMarkup(inline_keyboard=[
 
-        [InlineKeyboardButton(text=toggle_btn_text, callback_data="admin_toggle_maint")],
+        [
 
-        [InlineKeyboardButton(text=f"🎁 Заявки на подарки ({pending_claims})", callback_data="admin_claims")],
+            InlineKeyboardButton(text="👥 Аудитория", callback_data="adm_sec_aud"),
 
-        [InlineKeyboardButton(text="🏆 Топ донатеров", callback_data="admin_top_donors"), InlineKeyboardButton(text="🧾 Платежи", callback_data="admin_payments")],
+            InlineKeyboardButton(text=f"💰 Касса и Призы ({pending_claims})", callback_data="adm_sec_cash"),
 
-        [InlineKeyboardButton(text="🎟 Создать промокод", callback_data="admin_new_promo"), InlineKeyboardButton(text="📋 Промокоды", callback_data="admin_list_promo")],
+        ],
 
-        [InlineKeyboardButton(text="📢 Рассылка в ЛС", callback_data="admin_broadcast"), InlineKeyboardButton(text="📣 Рассылка в чаты", callback_data="admin_group_broadcast")],
+        [
 
-        [InlineKeyboardButton(text="💬 Статистика чатов", callback_data="admin_groups_stats")],
+            InlineKeyboardButton(text="🚀 Активность", callback_data="adm_sec_act"),
 
-        [InlineKeyboardButton(text="💾 Скачать базу", callback_data="admin_backup"), InlineKeyboardButton(text="🔄 Обновить", callback_data="admin_refresh")]
+            InlineKeyboardButton(text="🛠 Настройки", callback_data="adm_sec_sys"),
+
+        ],
+
+        [
+
+            InlineKeyboardButton(text="🔄 Обновить сводку", callback_data="admin_refresh"),
+
+        ]
 
     ])
 
@@ -1507,6 +1513,124 @@ def get_admin_dashboard():
  
 
  
+
+@dp.callback_query(F.data == "adm_sec_aud")
+
+async def cb_adm_sec_aud(call: types.CallbackQuery):
+
+    if call.from_user.id != ADMIN_ID:
+
+        return
+
+    kb = InlineKeyboardMarkup(inline_keyboard=[
+
+        [InlineKeyboardButton(text="💬 Статистика чатов", callback_data="admin_groups_stats")],
+
+        [InlineKeyboardButton(text="🏆 Топ донатеров", callback_data="admin_top_donors")],
+
+        [InlineKeyboardButton(text="⬅️ Назад в админку", callback_data="admin_refresh")]
+
+    ])
+
+    await call.message.edit_text("👥 <b>Раздел: Аудитория и Лидеры</b>\nВыберите нужный отчёт:", parse_mode="HTML", reply_markup=kb)
+
+    await call.answer()
+
+ 
+
+ 
+
+@dp.callback_query(F.data == "adm_sec_cash")
+
+async def cb_adm_sec_cash(call: types.CallbackQuery):
+
+    if call.from_user.id != ADMIN_ID:
+
+        return
+
+    cur.execute("SELECT COUNT(*) FROM claims WHERE status = 'pending'")
+
+    (pending_claims,) = cur.fetchone()
+
+    kb = InlineKeyboardMarkup(inline_keyboard=[
+
+        [InlineKeyboardButton(text=f"🎁 Заявки на подарки ({pending_claims})", callback_data="admin_claims")],
+
+        [InlineKeyboardButton(text="🧾 История платежей Stars", callback_data="admin_payments")],
+
+        [InlineKeyboardButton(text="⬅️ Назад в админку", callback_data="admin_refresh")]
+
+    ])
+
+    await call.message.edit_text("💰 <b>Раздел: Касса и Выдача призов</b>\nВыберите действие:", parse_mode="HTML", reply_markup=kb)
+
+    await call.answer()
+
+ 
+
+ 
+
+@dp.callback_query(F.data == "adm_sec_act")
+
+async def cb_adm_sec_act(call: types.CallbackQuery):
+
+    if call.from_user.id != ADMIN_ID:
+
+        return
+
+    kb = InlineKeyboardMarkup(inline_keyboard=[
+
+        [InlineKeyboardButton(text="🎟 Создать промокод", callback_data="admin_new_promo")],
+
+        [InlineKeyboardButton(text="📋 Список промокодов", callback_data="admin_list_promo")],
+
+        [InlineKeyboardButton(text="📢 Рассылка в ЛС", callback_data="admin_broadcast")],
+
+        [InlineKeyboardButton(text="📣 Рассылка по чатам", callback_data="admin_group_broadcast")],
+
+        [InlineKeyboardButton(text="⬅️ Назад в админку", callback_data="admin_refresh")]
+
+    ])
+
+    await call.message.edit_text("🚀 <b>Раздел: Активность и Продвижение</b>\nВыберите инструмент:", parse_mode="HTML", reply_markup=kb)
+
+    await call.answer()
+
+ 
+
+ 
+
+@dp.callback_query(F.data == "adm_sec_sys")
+
+async def cb_adm_sec_sys(call: types.CallbackQuery):
+
+    if call.from_user.id != ADMIN_ID:
+
+        return
+
+    maint = is_maintenance()
+
+    toggle_btn_text = "🟢 Включить бота (Разослать всем)" if maint else "🔴 Выключить на тех. работы"
+
+    kb = InlineKeyboardMarkup(inline_keyboard=[
+
+        [InlineKeyboardButton(text=toggle_btn_text, callback_data="admin_toggle_maint")],
+
+        [InlineKeyboardButton(text="💾 Скачать полную базу", callback_data="admin_backup")],
+
+        [InlineKeyboardButton(text="⬅️ Назад в админку", callback_data="admin_refresh")]
+
+    ])
+
+    await call.message.edit_text("🛠 <b>Раздел: Система и Резервные копии</b>\nУправление состоянием бота:", parse_mode="HTML", reply_markup=kb)
+
+    await call.answer()
+
+
+
+ 
+
+
 
 @dp.message(Command("admin"))
 
