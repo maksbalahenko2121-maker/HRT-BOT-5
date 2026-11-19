@@ -505,6 +505,11 @@ async def track_groups_middleware(handler, event: types.Message, data: dict):
             cur.execute(
 
                 "INSERT INTO groups (chat_id, title, members_count, actions_count, last_active) VALUES (?, ?, ?, 1, ?)",
+
+                
+                
+                
+                
 @dp.message.outer_middleware()
 
 async def track_groups_middleware(handler, event: types.Message, data: dict):
@@ -660,7 +665,6 @@ async def on_bot_added_to_group(event: types.ChatMemberUpdated):
         cur.execute("DELETE FROM groups WHERE chat_id = ?", (cid,))
 
         db.commit()
-
  
 
  
