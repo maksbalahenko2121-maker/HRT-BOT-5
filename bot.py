@@ -501,15 +501,6 @@ async def track_groups_middleware(handler, event: types.Message, data: dict):
             except Exception:
 
                 m_count = 0
-
-            cur.execute(
-
-                "INSERT INTO groups (chat_id, title, members_count, actions_count, last_active) VALUES (?, ?, ?, 1, ?)",
-
-                
-                
-                
-                
 @dp.message.outer_middleware()
 
 async def track_groups_middleware(handler, event: types.Message, data: dict):
@@ -587,7 +578,6 @@ async def track_groups_middleware(handler, event: types.Message, data: dict):
             db.commit()
 
     return await handler(event, data)
-
  
 
  
@@ -1412,38 +1402,7 @@ async def cb_ref(call: types.CallbackQuery):
 
  
 
- 
 
-@dp.callback_query(F.data.startswith("ref_"))
-
-async def cb_ref(call: types.CallbackQuery):
-
-    _, target_str = call.data.split("_")
-
-    target_id = int(target_str)
-
-    if not check_owner(call, target_id):
-
-        return await call.answer("Открой свою ссылку командой /ref", show_alert=True)
-
-    text, ref_link = get_ref_text(target_id)
-
-    share_url = f"https://t.me{quote(ref_link)}"
-
-    kb = InlineKeyboardMarkup(inline_keyboard=[
-
-        [InlineKeyboardButton(text="📤 Отправить ссылку другу", url=share_url)],
-
-        [InlineKeyboardButton(text="⬅️ Вернуться к герою", callback_data=f"back_{target_id}")]
-
-    ])
-
-    await send_or_edit_screen(call.message, text, kb, photo_id="", is_edit=True)
-
-
- 
-
- 
 
 @dp.message(Command("promo"))
 
@@ -1520,6 +1479,9 @@ async def cmd_use_promo(message: types.Message):
  
 
     await message.reply(f"🎉 <b>Промокод {code} активирован!</b>\nНачислено <b>+{reward}⚡</b>! Проверить шкалу: /card", parse_mode="HTML")
+
+
+
 
 @dp.message(F.photo, F.from_user.id == ADMIN_ID)
 
