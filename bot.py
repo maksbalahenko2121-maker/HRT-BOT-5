@@ -2602,27 +2602,17 @@ def parse_duration(args_list: list) -> tuple[int, str]:
 
 async def handle_chat_moderation(message: types.Message):
 
-    if message.chat.type not in ("group", "supergroup"):
+    if message.chat.type not in ("group", "supergroup"): return
 
-        return
+    parts = (message.text or "").strip().lower().split()
 
- 
-
-    raw = (message.text or "").strip().lower()
-
-    parts = raw.split()
-
-    if not parts:
-
-        return
-
- 
+    if not parts: return
 
     cmd, *rest = parts
 
-    if cmd not in ("бан", "разбан", "мут", "размут"):
+    if cmd not in ("бан", "разбан", "мут", "размут"): return await handle_rp_commands(message)
 
-        return await handle_rp_commands(message)
+    if not await is_chat_admin_or_creator(message.chat.id, message.from_user.id):
 
  
 
