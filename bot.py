@@ -3016,6 +3016,61 @@ async def handle_emoji_quiz_cmd(message: types.Message):
         quiz = active_emoji_quiz.get(cid)
 
         if not quiz:
+active_emoji_quiz = {}
+
+used_quiz_indices = {}
+
+ 
+
+ 
+
+def get_next_quiz_for_chat(cid: int):
+
+    used = used_quiz_indices.setdefault(cid, set())
+
+    available = [i for i in range(len(ANIME_EMOJI_QUIZ)) if i not in used]
+
+    if not available:
+
+        used.clear()
+
+        available = list(range(len(ANIME_EMOJI_QUIZ)))
+
+    chosen_idx = random.choice(available)
+
+    used.add(chosen_idx)
+
+    emojis, answers, title = ANIME_EMOJI_QUIZ[chosen_idx]
+
+    return emojis, answers, title, len(available) - 1
+
+ 
+
+ 
+
+@dp.message(F.text.lower().in_({"викторина", "эмодзи", "сдаюсь"}))
+
+async def handle_emoji_quiz_cmd(message: types.Message):
+
+    if message.chat.type not in ("group", "supergroup"):
+
+        return await message.reply("🧠 Викторина работает в групповых чатах! Добавь меня в беседу с друзьями!")
+
+ 
+
+    cid = message.chat.id
+
+    cmd = message.text.strip().lower()
+
+    now = int(time.time())
+
+ 
+
+    if cmd == "сдаюсь":
+
+        quiz = active_emoji_quiz.get(cid)
+
+        if not quiz:
 
             return await message.reply("🤷‍♂️ Сейчас нет активной загадки! Напиши <code>викторина</code>, чтобы начать.", parse_mode="HTML")
 
@@ -3041,7 +3096,7 @@ async def handle_emoji_quiz_cmd(message: types.Message):
 
             f"👉 <b>{q.get('emojis')}</b>\n\n"
 
-            f"<i>Пишите название прямо в чат! Победитель получит +10⚡</i>",
+            f"<i>Пишите название прямо в чат!</i>",
 
             parse_mode="HTML"
 
@@ -3061,7 +3116,7 @@ async def handle_emoji_quiz_cmd(message: types.Message):
 
         f"👉 <b>{emojis}</b>\n\n"
 
-        f"⚡ <i>Кто первый напишет название в чат — получит <b>+10⚡</b>!</i>",
+        f"💬 <i>Пишите название прямо в чат!</i>",
 
         parse_mode="HTML"
 
@@ -3073,59 +3128,69 @@ async def handle_emoji_quiz_cmd(message: types.Message):
 
 async def auto_emoji_quiz_loop():
 
+    msk = timezone(timedelta(hours=3))
+
+    last_sent_slot = ""
+
+ 
+
     while True:
 
-        await asyncio.sleep(2 * 3600)
+        await asyncio.sleep(30)
 
-        cur.execute("SELECT chat_id FROM groups")
+        now_msk = datetime.now(msk)
 
-        chats = cur.fetchall()
-
-        now = int(time.time())
+        slot_key = now_msk.strftime("%Y-%m-%d-%H")
 
  
 
-        for (cid,) in chats:
+        if now_msk.hour % 2 == 0 and now_msk.minute == 0 and last_sent_slot != slot_key:
 
-            if cid in active_emoji_quiz:
+            last_sent_slot = slot_key
 
-                old_q = active_emoji_quiz.get(cid)
+            cur.execute("SELECT chat_id FROM groups")
 
-                if now - old_q.get("ts", 0) < 7000:
+            chats = cur.fetchall()
 
-                    continue
-
-                del active_emoji_quiz[cid]
+            now = int(time.time())
 
  
 
-            emojis, answers, title, left_cnt = get_next_quiz_for_chat(cid)
+            for (cid,) in chats:
 
-            active_emoji_quiz[cid] = {"emojis": emojis, "answers": answers, "title": title, "ts": now}
+                if cid in active_emoji_quiz:
 
-            try:
+                    del active_emoji_quiz[cid]
 
-                await bot.send_message(
+ 
 
-                    cid,
+                emojis, answers, title, left_cnt = get_next_quiz_for_chat(cid)
 
-                    f"⏰ <b>ВРЕМЯ ДЛЯ АНИМЕ-ВИКТОРИНЫ!</b> (Каждые 2 часа)\n"
+                active_emoji_quiz[cid] = {"emojis": emojis, "answers": answers, "title": title, "ts": now}
 
-                    f"Угадайте тайтл по смайликам:\n\n"
+                try:
 
-                    f"👉 <b>{emojis}</b>\n\n"
+                    await bot.send_message(
 
-                    f"⚡ <i>Кто первый напишет название в чат — заберёт <b>+10⚡</b>!</i>",
+                        cid,
 
-                    parse_mode="HTML"
+                        f"⏰ <b>ВРЕМЯ ДЛЯ АНИМЕ-ВИКТОРИНЫ!</b> (Каждые 2 часа)\n"
 
-                )
+                        f"Угадайте тайтл по смайликам:\n\n"
 
-                await asyncio.sleep(0.1)
+                        f"👉 <b>{emojis}</b>\n\n"
 
-            except Exception:
+                        f"💬 <i>Кто первый напишет название в чат?</i>",
 
-                active_emoji_quiz.pop(cid, None)
+                        parse_mode="HTML"
+
+                    )
+
+                    await asyncio.sleep(0.1)
+
+                except Exception:
+
+                    active_emoji_quiz.pop(cid, None)
 
 
 
