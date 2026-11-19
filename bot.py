@@ -505,6 +505,41 @@ async def track_groups_middleware(handler, event: types.Message, data: dict):
             cur.execute(
 
                 "INSERT INTO groups (chat_id, title, members_count, actions_count, last_active) VALUES (?, ?, ?, 1, ?)",
+@dp.message.outer_middleware()
+
+async def track_groups_middleware(handler, event: types.Message, data: dict):
+
+    if await check_maint_block(event):
+
+        return
+
+    if event.chat and event.chat.type in ("group", "supergroup"):
+
+        cid = event.chat.id
+
+        title = event.chat.title or "Группа без названия"
+
+        now = int(time.time())
+
+        cur.execute("SELECT 1 FROM groups WHERE chat_id = ?", (cid,))
+
+        is_new = cur.fetchone() is None
+
+ 
+
+        if is_new:
+
+            try:
+
+                m_count = await bot.get_chat_member_count(cid)
+
+            except Exception:
+
+                m_count = 0
+
+            cur.execute(
+
+                "INSERT INTO groups (chat_id, title, members_count, actions_count, last_active) VALUES (?, ?, ?, 1, ?)",
 
                 (cid, title, m_count, now)
 
