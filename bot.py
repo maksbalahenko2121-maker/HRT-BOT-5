@@ -2622,7 +2622,11 @@ async def handle_chat_moderation(message: types.Message):
 
     if cmd not in ("бан", "разбан", "мут", "размут"):
 
-        return
+        return await handle_rp_commands(message)
+
+ 
+
+    if not await is_chat_admin_or_creator(message.chat.id, message.from_user.id):
 
  
 
