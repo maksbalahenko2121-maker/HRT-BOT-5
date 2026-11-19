@@ -356,7 +356,9 @@ def init_db():
 
 init_db()
 
-@dp.message.outer_middleware()
+ 
+
+ 
 
 def is_maintenance() -> bool:
 
@@ -418,9 +420,9 @@ async def check_maint_block(event) -> bool:
 
  
 
-@dp.update.outer_middleware()
+@dp.message.outer_middleware()
 
-async def maintenance_middleware(handler, event: types.Update, data: dict):
+async def track_groups_middleware(handler, event: types.Message, data: dict):
 
     user = None
 
