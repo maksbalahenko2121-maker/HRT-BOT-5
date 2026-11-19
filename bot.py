@@ -443,7 +443,6 @@ async def check_maint_block(event) -> bool:
 
  
 @dp.message.outer_middleware()
-@dp.message.outer_middleware()
 
 async def track_groups_middleware(handler, event: types.Message, data: dict):
 
@@ -2788,7 +2787,71 @@ async def handle_chat_moderation(message: types.Message):
 
             await bot.unban_chat_member(cid, target.id, only_if_banned=True)
 
+         
             cur.execute("DELETE FROM chat_punishments WHERE chat_id = ? AND user_id = ? AND p_type = 'ban'", (cid, target.id))
+
+@dp.message(F.reply_to_message, F.text)
+
+async def handle_chat_moderation(message: types.Message):
+
+    parts = (message.text or "").strip().lower().split()
+
+    cmd = parts.pop(0) if parts else ""
+
+    if message.chat.type not in ("group", "supergroup") or cmd not in ("бан", "разбан", "мут", "размут"):
+
+        return await handle_rp_commands(message)
+
+ 
+
+    is_boss = await is_chat_admin_or_creator(message.chat.id, message.from_user.id)
+
+    if not is_boss:
+
+        return await message.reply("⛔ <b>Эта техника доступна только создателю и админам чата!</b>", parse_mode="HTML")
+
+ 
+
+    target = message.reply_to_message.from_user
+
+    if target.id == bot.id:
+
+        return await message.reply("😤 Б-бака! Я сам себя запечатывать не буду!")
+
+ 
+
+    target_is_boss = await is_chat_admin_or_creator(message.chat.id, target.id)
+
+    if target_is_boss:
+
+        return await message.reply("🛡 Нельзя применить наказание к создателю или администратору!")
+
+ 
+
+    clean_name = (target.full_name or target.username or "Шиноби").replace("<", "").replace(">", "")
+
+    t_name = f"<b>{clean_name}</b>"
+
+    cid = message.chat.id
+
+    now = int(time.time())
+
+ 
+
+    try:
+
+        if cmd == "бан":
+
+            seconds, label = parse_duration(parts)
+
+            until = (now + seconds) if seconds > 0 else 0
+
+            dur_text = f"на {label}" if seconds > 0 else "навсегда"
+
+            if seconds > 0:
+
+                await bot.ban_chat_member(cid, target.id, until_date=until)
+
 @dp.message(F.reply_to_message, F.text)
 
 async def handle_chat_moderation(message: types.Message):
@@ -2914,6 +2977,8 @@ async def handle_chat_moderation(message: types.Message):
     except Exception as e:
 
         await message.reply(f"⚠️ <b>Не удалось выполнить технику!</b>\nПричина: <code>{e}</code>", parse_mode="HTML")
+
+
  
 
  
