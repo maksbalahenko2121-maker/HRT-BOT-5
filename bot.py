@@ -43,8 +43,7 @@ from aiogram.types import (
 logging.basicConfig(level=logging.INFO)
 
  
-
-BOT_TOKEN = "9297074957:AAHH0SfGcccDMoJE0a4XuPRrAI1aa97UvGk"
+BOT_TOKEN:"9297074957:AAFQ2we86CHUwPdy4N6O9v0nm4uD-z6qSQs"
 
 ADMIN_ID = 6921885296
 
@@ -352,7 +351,7 @@ def init_db():
 
     cur.execute("""
 
-    CREATE TABLE IF NOT EXISTS chat_punishments (
+    CREATE TABLE IF NOT EXISTS chat_members (
 
         chat_id INTEGER,
 
@@ -360,17 +359,22 @@ def init_db():
 
         user_name TEXT,
 
-        p_type TEXT,
+        msg_total INTEGER DEFAULT 0,
 
-        until_ts INTEGER,
+        msg_today INTEGER DEFAULT 0,
 
-        PRIMARY KEY (chat_id, user_id, p_type)
+        last_msg_ts INTEGER DEFAULT 0,
+
+        PRIMARY KEY (chat_id, user_id)
 
     )
 
     """)
 
- 
+    db.commit()
+
+
+
 
  
 
@@ -515,6 +519,36 @@ async def track_groups_middleware(handler, event: types.Message, data: dict):
             )
 
             db.commit()
+
+    if event.chat and event.chat.type in ("group", "supergroup") and event.from_user and not event.from_user.is_bot:
+
+        uid = event.from_user.id
+
+        uname = (event.from_user.full_name or event.from_user.username or "Шиноби").replace("<", "").replace(">", "")
+
+        cid = event.chat.id
+
+        now = int(time.time())
+
+        cur.execute("""
+
+            INSERT INTO chat_members (chat_id, user_id, user_name, msg_total, msg_today, last_msg_ts)
+
+            VALUES (?, ?, ?, 1, 1, ?)
+
+            ON CONFLICT(chat_id, user_id) DO UPDATE SET
+
+                user_name = excluded.user_name,
+
+                msg_total = msg_total + 1,
+
+                msg_today = msg_today + 1,
+
+                last_msg_ts = excluded.last_msg_ts
+
+        """, (cid, uid, uname, now))
+
+        db.commit()
 
     return await handler(event, data)
  
@@ -2815,6 +2849,110 @@ async def handle_punishments_list(message: types.Message):
 
 
 
+@dp.message(F.text.lower().in_({"стата", "топ", "топ чата", "молчуны"}))
+
+async def handle_chat_activity_stats(message: types.Message):
+
+    if message.chat.type not in ("group", "supergroup"):
+
+        return
+
+ 
+
+    cmd = message.text.strip().lower()
+
+    cid = message.chat.id
+
+    now = int(time.time())
+
+ 
+
+    if cmd == "молчуны":
+
+        three_days_ago = now - (3 * 86400)
+
+        cur.execute("""
+
+            SELECT user_name, last_msg_ts, msg_total
+
+            FROM chat_members
+
+            WHERE chat_id = ? AND last_msg_ts < ?
+
+            ORDER BY last_msg_ts ASC LIMIT 25
+
+        """, (cid, three_days_ago))
+
+        rows = cur.fetchall()
+
+        if not rows:
+
+            return await message.reply("🔥 <b>Красавцы! В этом чате нет молчунов — все писали за последние 3 дня!</b>", parse_mode="HTML")
+
+ 
+
+        text = "😴 <b>Список молчунов чата (молчат больше 3 дней):</b>\n\n"
+
+        for idx, (uname, last_ts, total) in enumerate(rows, start=1):
+
+            days_silent = max(1, (now - last_ts) // 86400)
+
+            text += f"{idx}. <b>{uname}</b> — молчит <b>{days_silent} дн.</b> (всего: {total} сообщ.)\n"
+
+        return await message.reply(text, parse_mode="HTML")
+
+ 
+
+    cur.execute("""
+
+        SELECT user_name, msg_total, msg_today
+
+        FROM chat_members
+
+        WHERE chat_id = ?
+
+        ORDER BY msg_total DESC LIMIT 50
+
+    """, (cid,))
+
+    rows = cur.fetchall()
+
+ 
+
+    if not rows:
+
+        return await message.reply("📊 Статистика чата пока пуста — напишите пару сообщений!", parse_mode="HTML")
+
+ 
+
+    cur.execute("SELECT SUM(msg_total), SUM(msg_today) FROM chat_members WHERE chat_id = ?", (cid,))
+
+    sum_total, sum_today = cur.fetchone()
+
+ 
+
+    text = (
+
+        f"📊 <b>ТОП-50 БОЛТУНОВ ЧАТА</b>\n"
+
+        f"💬 Всего сообщений: <b>{sum_total or 0}</b> (за сегодня: <b>{sum_today or 0}</b>)\n\n"
+
+    )
+
+    medals = {1: "🥇", 2: "🥈", 3: "🥉"}
+
+    for idx, (uname, total, today) in enumerate(rows, start=1):
+
+        mark = medals.get(idx, f"<b>{idx}.</b>")
+
+        text += f"{mark} <b>{uname}</b> — <b>{total}</b> сообщ. (сегодня: +{today})\n"
+
+ 
+
+    await message.reply(text, parse_mode="HTML")
+
+
+    
 @dp.message(Command("rp"))
 
 async def cmd_rp_help(message: types.Message):
@@ -3683,6 +3821,195 @@ async def handle_tsundere_translator(message: types.Message):
 
 
 
+EVENING_COMPLIMENTS = [
+
+    "Ты сегодня болтал(а) быстрее, чем Наруто уплетает рамен в Ичираку!",
+
+    "Твоя харизма сегодня ярче, чем Расэнган в ночном небе!",
+
+    "Даже Сатору Годжо снял бы повязку, чтобы почитать твои сообщения!",
+
+    "Ты главный двигатель этого чата — без тебя здесь была бы тишина как в склепе Орочимару!",
+
+    "Твои сообщения сегодня заряжают чат лучше любой чакры Девятихвостого!",
+
+    "Итачи Учиха одобряет твой стиль общения — ни одного лишнего слова, чистый шедевр!",
+
+    "Ты сегодня в ударе, как Сайтама на распродаже в супермаркете!",
+
+    "С такими темпами общения тебе пора выдавать титул Хокаге этой беседы!",
+
+    "Твой юмор и активность сегодня просто 10 из 10 по шкале Ани Форджер!",
+
+    "Даже Какаши отложил свою книжку, чтобы почитать твои перлы в чате!",
+
+    "Твоя энергия сегодня бьёт через край, как у Иноске перед дракой!",
+
+    "Ты настоящий легендарный саннин общения в этой группе!",
+
+    "Без твоих сообщений этот чат потерял бы половину своего вайба!",
+
+    "Твоя клавиатура сегодня дымится сильнее, чем клинок Танджиро!",
+
+    "Ты сегодня сияешь ярче, чем Сусаноо Мадары!",
+
+    "Леви Аккерман поставил бы тебе пятёрку за образцовую активность в беседе!",
+
+    "Твои сообщения сегодня спасают чат от скуки лучше любого аниме-марафона!",
+
+    "Ты абсолютный чемпион по скорости печати — Киллуа на молнии нервно курит в сторонке!",
+
+    "Сегодня весь чат держался на твоей легендарной активности!",
+
+    "Даже Рюк забыл про яблоки, зачитавшись твоими сообщениями!",
+
+    "Твой вклад в жизнь чата сегодня тянет на S-ранг!",
+
+    "С тобой в чате веселее, чем на фестивале в Конохе!",
+
+    "Твоя общительность сегодня на уровне Бога Аниме!",
+
+    "Ты заряжаешь позитивом лучше, чем утренний онигири!",
+
+    "Если бы за сообщения давали пояс чемпиона, он бы уже висел у тебя!",
+
+    "Твой стиль общения настолько крут, что даже Саске бы улыбнулся!",
+
+    "Сегодня ты абсолютный MVP нашей беседы — заслуженный респект!",
+
+    "Твоя активность сегодня пробила небеса, как бур Симона!",
+
+    "Ты главный генератор контента и хорошего настроения в этом чате!",
+
+    "Весь чат аплодирует стоя твоей сегодняшней активности!",
+
+]
+
+ 
+
+ 
+
+async def evening_chat_summary():
+
+    from datetime import timezone, timedelta
+
+    msk = timezone(timedelta(hours=3))
+
+    last_sent_date = ""
+
+ 
+
+    while True:
+
+        await asyncio.sleep(30)
+
+        now_msk = datetime.now(msk)
+
+        today_str = now_msk.strftime("%Y-%m-%d")
+
+ 
+
+        if now_msk.hour == 22 and now_msk.minute == 0 and last_sent_date != today_str:
+
+            last_sent_date = today_str
+
+            cur.execute("SELECT DISTINCT chat_id FROM chat_members WHERE msg_today > 0")
+
+            active_chats = cur.fetchall()
+
+ 
+
+            for (cid,) in active_chats:
+
+                cur.execute("SELECT SUM(msg_today) FROM chat_members WHERE chat_id = ?", (cid,))
+
+                (total_today,) = cur.fetchone()
+
+ 
+
+                cur.execute("""
+
+                    SELECT user_id, user_name, msg_today
+
+                    FROM chat_members
+
+                    WHERE chat_id = ? AND msg_today > 0
+
+                    ORDER BY msg_today DESC LIMIT 3
+
+                """, (cid,))
+
+                top_three = cur.fetchall()
+
+                if not top_three:
+
+                    continue
+
+ 
+
+                first_winner, *_ = top_three
+
+                winner_id, winner_name, winner_msgs = first_winner
+
+ 
+
+                w_user = get_user(winner_id, winner_name)
+
+                _, _, w_lvl, w_energy, _, _, _ = w_user
+
+                lvl_data = LEVELS.get(w_lvl)
+
+                if lvl_data:
+
+                    new_en = min(w_energy + 15, lvl_data.get("need"))
+
+                    cur.execute("UPDATE users SET energy = ? WHERE user_id = ?", (new_en, winner_id))
+
+ 
+
+                compliment = random.choice(EVENING_COMPLIMENTS)
+
+                summary_text = (
+
+                    f"🌙 <b>ВЕЧЕРНИЕ ИТОГИ ДНЯ В ЧАТЕ!</b>\n\n"
+
+                    f"💬 За сегодня мы написали: <b>{total_today} сообщ.</b>\n\n"
+
+                    f"👑 <b>Главный активист дня:</b> <b>{winner_name}</b> ({winner_msgs} сообщ.)\n"
+
+                    f"✨ <i>{compliment}</i>\n"
+
+                    f"🎁 <b>Награда победителю:</b> начислено <b>+15⚡</b> к твоему аниме-герою!\n\n"
+
+                    f"🔥 <b>Тройка лидеров сегодня:</b>\n"
+
+                )
+
+                medals = {1: "🥇", 2: "🥈", 3: "🥉"}
+
+                for idx, (_, uname, msgs) in enumerate(top_three, start=1):
+
+                    summary_text += f"{medals.get(idx)} <b>{uname}</b> — {msgs} сообщ.\n"
+
+ 
+
+                try:
+
+                    await bot.send_message(cid, summary_text, parse_mode="HTML")
+
+                    await asyncio.sleep(0.1)
+
+                except Exception:
+
+                    pass
+
+ 
+
+            cur.execute("UPDATE chat_members SET msg_today = 0")
+
+            db.commit()
+    
+    
 async def main():
     
     await set_bot_commands()
@@ -3698,6 +4025,8 @@ async def main():
     asyncio.create_task(notify_ready_users())
 
     asyncio.create_task(auto_backup_db())
+
+    asyncio.create_task(evening_chat_summary())
 
     await dp.start_polling(bot)
 
