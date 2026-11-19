@@ -2903,6 +2903,174 @@ async def handle_chat_activity_stats(message: types.Message):
 
 
     
+active_emoji_quiz = {}
+
+used_quiz_indices = {}
+
+ 
+
+ 
+
+def get_next_quiz_for_chat(cid: int):
+
+    used = used_quiz_indices.setdefault(cid, set())
+
+    available = [i for i in range(len(ANIME_EMOJI_QUIZ)) if i not in used]
+
+    if not available:
+
+        used.clear()
+
+        available = list(range(len(ANIME_EMOJI_QUIZ)))
+
+    chosen_idx = random.choice(available)
+
+    used.add(chosen_idx)
+
+    emojis, answers, title = ANIME_EMOJI_QUIZ[chosen_idx]
+
+    return emojis, answers, title, len(available) - 1
+
+ 
+
+ 
+
+@dp.message(F.text.lower().in_({"викторина", "эмодзи", "сдаюсь"}))
+
+async def handle_emoji_quiz_cmd(message: types.Message):
+
+    if message.chat.type not in ("group", "supergroup"):
+
+        return await message.reply("🧠 Викторина работает в групповых чатах! Добавь меня в беседу с друзьями!")
+
+ 
+
+    cid = message.chat.id
+
+    cmd = message.text.strip().lower()
+
+    now = int(time.time())
+
+ 
+
+    if cmd == "сдаюсь":
+
+        quiz = active_emoji_quiz.get(cid)
+
+        if not quiz:
+
+            return await message.reply("🤷‍♂️ Сейчас нет активной загадки! Напиши <code>викторина</code>, чтобы начать.", parse_mode="HTML")
+
+        if now - quiz.get("ts") < 15:
+
+            return await message.reply("⏳ Подождите хотя бы 15 секунд, дайте ребятам подумать!")
+
+        title = quiz.get("title")
+
+        del active_emoji_quiz[cid]
+
+        return await message.reply(f"🏳️ <b>Никто не угадал!</b> Это было аниме: <b>{title}</b>\nПишите <code>викторина</code> для нового раунда!", parse_mode="HTML")
+
+ 
+
+    if cid in active_emoji_quiz:
+
+        q = active_emoji_quiz.get(cid)
+
+        return await message.reply(
+
+            f"🧠 <b>Загадка уже идёт!</b> Угадайте аниме по эмодзи:\n\n"
+
+            f"👉 <b>{q.get('emojis')}</b>\n\n"
+
+            f"<i>Пишите название прямо в чат! Победитель получит +10⚡</i>",
+
+            parse_mode="HTML"
+
+        )
+
+ 
+
+    emojis, answers, title, left_cnt = get_next_quiz_for_chat(cid)
+
+    active_emoji_quiz[cid] = {"emojis": emojis, "answers": answers, "title": title, "ts": now}
+
+    await message.answer(
+
+        f"🧠 <b>АНИМЕ-ВИКТОРИНА!</b> (Новых в колоде: {left_cnt})\n"
+
+        f"Угадайте тайтл по смайликам:\n\n"
+
+        f"👉 <b>{emojis}</b>\n\n"
+
+        f"⚡ <i>Кто первый напишет название в чат — получит <b>+10⚡</b>!</i>",
+
+        parse_mode="HTML"
+
+    )
+
+ 
+
+ 
+
+async def auto_emoji_quiz_loop():
+
+    while True:
+
+        await asyncio.sleep(2 * 3600)
+
+        cur.execute("SELECT chat_id FROM groups")
+
+        chats = cur.fetchall()
+
+        now = int(time.time())
+
+ 
+
+        for (cid,) in chats:
+
+            if cid in active_emoji_quiz:
+
+                old_q = active_emoji_quiz.get(cid)
+
+                if now - old_q.get("ts", 0) < 7000:
+
+                    continue
+
+                del active_emoji_quiz[cid]
+
+ 
+
+            emojis, answers, title, left_cnt = get_next_quiz_for_chat(cid)
+
+            active_emoji_quiz[cid] = {"emojis": emojis, "answers": answers, "title": title, "ts": now}
+
+            try:
+
+                await bot.send_message(
+
+                    cid,
+
+                    f"⏰ <b>ВРЕМЯ ДЛЯ АНИМЕ-ВИКТОРИНЫ!</b> (Каждые 2 часа)\n"
+
+                    f"Угадайте тайтл по смайликам:\n\n"
+
+                    f"👉 <b>{emojis}</b>\n\n"
+
+                    f"⚡ <i>Кто первый напишет название в чат — заберёт <b>+10⚡</b>!</i>",
+
+                    parse_mode="HTML"
+
+                )
+
+                await asyncio.sleep(0.1)
+
+            except Exception:
+
+                active_emoji_quiz.pop(cid, None)
+
+
+
 @dp.message(Command("rp"))
 
 async def cmd_rp_help(message: types.Message):
