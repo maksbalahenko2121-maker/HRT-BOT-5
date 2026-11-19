@@ -550,43 +550,10 @@ async def track_groups_middleware(handler, event: types.Message, data: dict):
 
         db.commit()
 
-        if event.chat and event.chat.type in ("group", "supergroup") and event.text and event.from_user and not event.from_user.is_bot:
+      
+    if event.chat and event.chat.type in ("group", "supergroup") and event.text and event.from_user and not event.from_user.is_bot:
 
-        cid = event.chat.id
-
-        if cid in active_emoji_quiz:
-
-            guess = event.text.strip().lower().replace(",", "").replace(".", "").replace("!", "").replace(":", "")
-
-            quiz = active_emoji_quiz.get(cid)
-
-            if guess in quiz.get("answers"):
-
-                title = quiz.get("title")
-
-                del active_emoji_quiz[cid]
-
-                uname = (event.from_user.full_name or event.from_user.username or "Шиноби").replace("<", "").replace(">", "")
-
-                try:
-
-                    await event.reply(
-
-                        f"🎉 <b>ЕСТЬ ПРАВИЛЬНЫЙ ОТВЕТ!</b>\n\n"
-
-                        f"🏆 Самый быстрый знаток аниме: <b>{uname}</b>\n"
-
-                        f"🎬 Загаданный тайтл: <b>{title}</b>\n\n"
-
-                        f"<i>Напиши <code>викторина</code> для нового раунда!</i>",
-
-                        parse_mode="HTML"
-
-                    )
-
-                except Exception:
-
-                    pass
+        await process_emoji_quiz_answer(event)
 
     return await handler(event, data)
  
@@ -2999,6 +2966,48 @@ async def handle_emoji_quiz_cmd(message: types.Message):
 active_emoji_quiz = {}
 
 used_quiz_indices = {}
+
+async def process_emoji_quiz_answer(event: types.Message):
+
+    cid = event.chat.id
+
+    if cid not in active_emoji_quiz:
+
+        return
+
+    guess = event.text.strip().lower().replace(",", "").replace(".", "").replace("!", "").replace(":", "")
+
+    quiz = active_emoji_quiz.get(cid)
+
+    if guess not in quiz.get("answers"):
+
+        return
+
+    title = quiz.get("title")
+
+    del active_emoji_quiz[cid]
+
+    uname = (event.from_user.full_name or event.from_user.username or "Шиноби").replace("<", "").replace(">", "")
+
+    try:
+
+        await event.reply(
+
+            f"🎉 <b>ЕСТЬ ПРАВИЛЬНЫЙ ОТВЕТ!</b>\n\n"
+
+            f"🏆 Самый быстрый знаток аниме: <b>{uname}</b>\n"
+
+            f"🎬 Загаданный тайтл: <b>{title}</b>\n\n"
+
+            f"<i>Напиши <code>викторина</code> для нового раунда!</i>",
+
+            parse_mode="HTML"
+
+        )
+
+    except Exception:
+
+        pass
 
  
 
