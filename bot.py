@@ -497,10 +497,6 @@ async def track_groups_middleware(handler, event: types.Message, data: dict):
             try:
 
                 m_count = await bot.get_chat_member_count(cid)
-
-            except Exception:
-
-                m_count = 0
 @dp.message.outer_middleware()
 
 async def track_groups_middleware(handler, event: types.Message, data: dict):
