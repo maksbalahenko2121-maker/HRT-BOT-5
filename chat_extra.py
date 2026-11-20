@@ -10,6 +10,10 @@ from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
 
  
 
+INFO_URL = "https://telegra.ph"  # <-- Вставьте сюда вашу ссылку со статьёй из Telegraph
+
+ 
+
 PERSONAL_DOSSIER_QUOTES = [
 
     "Хмф, ну подумаешь, зашёл в профиль… Не зазнавайся, до Хокаге тебе ещё далеко, бака!",
@@ -51,6 +55,8 @@ DOSSIER_CMDS = {"профиль", "кто я", "кто ты", "статус"}
 VIEW_RULES_CMDS = {"правила", "/rules"}
 
 DEL_RULES_CMDS = {"-правила", "удалить правила"}
+
+INFO_CMDS = {"информация", "инфо", "гайд", "помощь", "/help"}
 
  
 
@@ -281,6 +287,40 @@ def setup_chat_extra(dp: Dispatcher, bot: Bot, cur, db, admin_id: int, levels: d
         )
 
         await message.reply(msg_text, reply_markup=kb, parse_mode="HTML")
+
+ 
+
+    async def handle_show_info(message: types.Message):
+
+        kb = InlineKeyboardMarkup(inline_keyboard=[
+
+            [InlineKeyboardButton(text="📖 Открыть полную инструкцию", url=INFO_URL)]
+
+        ])
+
+        info_text = (
+
+            "📚 <b>ОБЩАЯ ИНФОРМАЦИЯ И ГАЙД ПО БОТУ</b>\n"
+
+            "━━━━━━━━━━━━━━\n"
+
+            "∙ 🎮 Суть игры и прокачка героев\n"
+
+            "∙ 😤 Все РП-команды и реплики\n"
+
+            "∙ 🎴 Досье шиноби и статистика чата\n"
+
+            "∙ 🧠 Правила аниме-викторины\n"
+
+            "∙ 🛡 Админ-команды для бесед\n"
+
+            "━━━━━━━━━━━━━━\n"
+
+            "😤 <i>«Хмф! Специально для тебя всё расписал(а) на одной странице — нажимай и читай, бака!»</i>"
+
+        )
+
+        await message.reply(info_text, reply_markup=kb, parse_mode="HTML")
 
  
 
@@ -559,6 +599,14 @@ def setup_chat_extra(dp: Dispatcher, bot: Bot, cur, db, admin_id: int, levels: d
             if lower_text in VIEW_RULES_CMDS or lower_text.startswith("/rules@"):
 
                 await handle_show_rules(event)
+
+                return
+
+ 
+
+            if lower_text in INFO_CMDS or lower_text.startswith("/help@"):
+
+                await handle_show_info(event)
 
                 return
 
