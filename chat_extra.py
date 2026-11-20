@@ -4,7 +4,9 @@ import time
 
 from datetime import datetime
 
-from aiogram import Bot, Dispatcher, types
+from aiogram import Bot, Dispatcher, F, types
+
+from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
 
  
 
@@ -46,11 +48,31 @@ PERSONAL_DOSSIER_QUOTES = [
 
 DOSSIER_CMDS = {"профиль", "кто я", "кто ты", "статус"}
 
- 
+VIEW_RULES_CMDS = {"правила", "/rules"}
+
+DEL_RULES_CMDS = {"-правила", "удалить правила"}
 
  
 
-def ensure_chat_columns(c):
+ 
+
+def ensure_extra_tables(c):
+
+    c.execute("""
+
+    CREATE TABLE IF NOT EXISTS chat_rules (
+
+        chat_id INTEGER PRIMARY KEY,
+
+        rules_text TEXT,
+
+        updated_by TEXT,
+
+        updated_at INTEGER
+
+    )
+
+    """)
 
     for col_sql in [
 
@@ -77,6 +99,196 @@ def setup_chat_extra(dp: Dispatcher, bot: Bot, cur, db, admin_id: int, levels: d
     if active_quiz_dict is None:
 
         active_quiz_dict = {}
+
+ 
+
+    async def is_boss_user(chat_id: int, user_id: int) -> bool:
+
+        if user_id == admin_id:
+
+            return True
+
+        try:
+
+            member = await bot.get_chat_member(chat_id, user_id)
+
+            return member.status in ("creator", "administrator")
+
+        except Exception:
+
+            return False
+
+ 
+
+    async def handle_set_rules(message: types.Message, raw_text: str):
+
+        cid = message.chat.id
+
+        uid = message.from_user.id
+
+ 
+
+        if not await is_boss_user(cid, uid):
+
+            return await message.reply("⛔ <b>Устанавливать правила могут только создатель и админы чата!</b>", parse_mode="HTML")
+
+ 
+
+        if not raw_text:
+
+            return await message.reply(
+
+                "📜 <b>Как создать правила чата:</b>\n"
+
+                "Напиши <code>+правила</code>, нажми <b>Enter</b> и распиши пункты с новой строки:\n\n"
+
+                "<code>+правила\n1. Не спамить\n2. Уважать участников</code>",
+
+                parse_mode="HTML"
+
+            )
+
+ 
+
+        safe_rules = raw_text.replace("<", "").replace(">", "")
+
+        author_name = (message.from_user.full_name or message.from_user.username or "Админ").replace("<", "").replace(">", "")
+
+        now = int(time.time())
+
+ 
+
+        with sqlite3.connect("game_v2.db") as conn:
+
+            conn.execute("PRAGMA busy_timeout=5000;")
+
+            c = conn.cursor()
+
+            ensure_extra_tables(c)
+
+            c.execute(
+
+                "INSERT OR REPLACE INTO chat_rules (chat_id, rules_text, updated_by, updated_at) VALUES (?, ?, ?, ?)",
+
+                (cid, safe_rules, author_name, now)
+
+            )
+
+            conn.commit()
+
+ 
+
+        await message.reply(
+
+            "✅ <b>Правила беседы успешно сохранены!</b>\n"
+
+            "Теперь любой участник может открыть их словом <code>правила</code>.",
+
+            parse_mode="HTML"
+
+        )
+
+ 
+
+    async def handle_del_rules(message: types.Message):
+
+        cid = message.chat.id
+
+        uid = message.from_user.id
+
+ 
+
+        if not await is_boss_user(cid, uid):
+
+            return await message.reply("⛔ <b>Удалять правила могут только создатель и админы чата!</b>", parse_mode="HTML")
+
+ 
+
+        with sqlite3.connect("game_v2.db") as conn:
+
+            conn.execute("PRAGMA busy_timeout=5000;")
+
+            c = conn.cursor()
+
+            ensure_extra_tables(c)
+
+            c.execute("DELETE FROM chat_rules WHERE chat_id = ?", (cid,))
+
+            conn.commit()
+
+ 
+
+        await message.reply("🗑 <b>Правила этого чата удалены!</b>", parse_mode="HTML")
+
+ 
+
+    async def handle_show_rules(message: types.Message):
+
+        cid = message.chat.id
+
+        with sqlite3.connect("game_v2.db") as conn:
+
+            conn.execute("PRAGMA busy_timeout=5000;")
+
+            c = conn.cursor()
+
+            ensure_extra_tables(c)
+
+            c.execute("SELECT rules_text, updated_by, updated_at FROM chat_rules WHERE chat_id = ?", (cid,))
+
+            row = c.fetchone()
+
+ 
+
+        if not row or not row[0]:
+
+            return await message.reply(
+
+                "📜 <b>В этом чате ещё не установлены правила!</b>\n"
+
+                "<i>Админы могут задать их командой <code>+правила [текст]</code>.</i>",
+
+                parse_mode="HTML"
+
+            )
+
+ 
+
+        rules_text, author, upd_ts = row
+
+        date_str = datetime.fromtimestamp(upd_ts).strftime("%d.%m.%Y")
+
+        kb = InlineKeyboardMarkup(inline_keyboard=[
+
+            [InlineKeyboardButton(text="😤 Ознакомлен(а), бака!", callback_data="chat_rules_ack")]
+
+        ])
+
+ 
+
+        msg_text = (
+
+            f"📜 <b>ПРАВИЛА ЭТОЙ БЕСЕДЫ</b>\n"
+
+            f"━━━━━━━━━━━━━━\n"
+
+            f"{rules_text}\n"
+
+            f"━━━━━━━━━━━━━━\n"
+
+            f"✍️ <i>Обновил(а): {author} ({date_str})</i>"
+
+        )
+
+        await message.reply(msg_text, reply_markup=kb, parse_mode="HTML")
+
+ 
+
+    @dp.callback_query(F.data == "chat_rules_ack")
+
+    async def cb_rules_ack(callback: types.CallbackQuery):
+
+        await callback.answer("Хмф! Смотри не нарушай их, бака, а то получишь по шее!", show_alert=True)
 
  
 
@@ -136,7 +348,7 @@ def setup_chat_extra(dp: Dispatcher, bot: Bot, cur, db, admin_id: int, levels: d
 
             c = conn.cursor()
 
-            ensure_chat_columns(c)
+            ensure_extra_tables(c)
 
             c.execute(
 
@@ -173,12 +385,6 @@ def setup_chat_extra(dp: Dispatcher, bot: Bot, cur, db, admin_id: int, levels: d
  
 
     async def send_user_dossier(message: types.Message):
-
-        if message.chat.type not in ("group", "supergroup"):
-
-            return
-
- 
 
         target = message.reply_to_message.from_user if (message.reply_to_message and message.reply_to_message.from_user) else message.from_user
 
@@ -230,7 +436,7 @@ def setup_chat_extra(dp: Dispatcher, bot: Bot, cur, db, admin_id: int, levels: d
 
             c = conn.cursor()
 
-            ensure_chat_columns(c)
+            ensure_extra_tables(c)
 
  
 
@@ -336,16 +542,52 @@ def setup_chat_extra(dp: Dispatcher, bot: Bot, cur, db, admin_id: int, levels: d
 
         if event.chat and event.chat.type in ("group", "supergroup") and event.text:
 
-            clean_cmd = event.text.strip().lower()
+            full_text = event.text.strip()
 
-            if clean_cmd in DOSSIER_CMDS:
+            lower_text = full_text.lower()
+
+ 
+
+            if lower_text in DOSSIER_CMDS:
 
                 await send_user_dossier(event)
 
                 return
 
+ 
+
+            if lower_text in VIEW_RULES_CMDS or lower_text.startswith("/rules@"):
+
+                await handle_show_rules(event)
+
+                return
+
+ 
+
+            if lower_text in DEL_RULES_CMDS:
+
+                await handle_del_rules(event)
+
+                return
+
+ 
+
+            for prefix in ("+правила", "новые правила", "/setrules"):
+
+                if lower_text == prefix or lower_text.startswith(prefix + " ") or lower_text.startswith(prefix + "\n"):
+
+                    rules_body = full_text[len(prefix):].strip()
+
+                    await handle_set_rules(event, rules_body)
+
+                    return
+
+ 
+
             if await check_quiz_answer_safe(event):
 
                 return
+
+ 
 
         return await handler(event, data)
