@@ -254,7 +254,9 @@ db = sqlite3.connect("game_v2.db")
 
 cur = db.cursor()
 
- 
+cur.execute("PRAGMA journal_mode=WAL;")
+
+cur.execute("PRAGMA synchronous=FULL;")
 
  
 
@@ -395,6 +397,25 @@ def init_db():
     )
 
     """)
+
+
+    for col_sql in [
+
+        "ALTER TABLE chat_members ADD COLUMN quiz_wins INTEGER DEFAULT 0",
+
+        "ALTER TABLE chat_members ADD COLUMN first_seen_ts INTEGER DEFAULT 0",
+
+        "ALTER TABLE chat_members ADD COLUMN title TEXT DEFAULT ''",
+
+    ]:
+
+        try:
+
+            cur.execute(col_sql)
+
+        except sqlite3.OperationalError:
+
+            pass
     
     db.commit()
 
@@ -2058,63 +2079,73 @@ async def cb_admin_backup(call: types.CallbackQuery):
 
 async def admin_restore_db(message: types.Message):
 
-    global db, cur
+    if message.from_user.id != ADMIN_ID:
 
-    fname = (message.document.file_name or "").lower()
+        return
 
-    if not fname.endswith(".db"):
+    doc = message.document
 
-        return await message.reply("⚠️ Отправьте файл базы данных с расширением <b>.db</b>.", parse_mode="HTML")
+    if not doc.file_name.endswith(".db"):
 
- 
+        return await message.reply("❌ Это не файл базы данных (нужен файл с расширением .db)")
 
     try:
 
-        db.commit()
+        file_info = await bot.get_file(doc.file_id)
+
+        temp_path = "temp_restore.db"
+
+        await bot.download_file(file_info.file_path, temp_path)
+
+ 
+
+        global db, cur
 
         db.close()
 
- 
+        shutil.move(temp_path, "game_v2.db")
 
-        import os
-
-        if os.path.exists("game_v2.db"):
-
-            os.remove("game_v2.db")
-
- 
-
-        file_info = await bot.get_file(message.document.file_id)
-
-        await bot.download_file(file_info.file_path, "game_v2.db")
-
- 
-
-        db = sqlite3.connect("game_v2.db")
+        db = sqlite3.connect("game_v2.db", check_same_thread=False)
 
         cur = db.cursor()
+
+        cur.execute("PRAGMA journal_mode=WAL;")
+
+        cur.execute("PRAGMA synchronous=FULL;")
 
         init_db()
 
  
 
-        cur.execute("SELECT COUNT(*) FROM users")
+        cur.execute("SELECT COUNT(*), COALESCE(SUM(energy), 0) FROM users")
 
-        (users_count,) = cur.fetchone()
+        users_count, total_energy = cur.fetchone()
 
         cur.execute("SELECT COUNT(*) FROM referrals WHERE rewarded = 1")
 
         (refs_count,) = cur.fetchone()
 
+        cur.execute("SELECT COUNT(*) FROM groups")
+
+        (groups_count,) = cur.fetchone()
+
+        cur.execute("SELECT COUNT(*) FROM chat_members")
+
+        (members_count,) = cur.fetchone()
+
  
 
         await message.reply(
 
-            f"✅ <b>База данных успешно восстановлена!</b>\n"
+            f"✅ <b>ПОЛНАЯ БАЗА ДАННЫХ ВОССТАНОВЛЕНА!</b>\n\n"
 
-            f"👥 Игроков в базе: <b>{users_count} чел.</b>\n"
+            f"👥 Игроков: <b>{users_count}</b> (сумма энергии: <b>{total_energy}⚡</b>)\n"
 
-            f"🤝 Сохранено рефералов: <b>{refs_count} чел.</b>",
+            f"🤝 Рефералов: <b>{refs_count}</b>\n"
+
+            f"💬 Групповых чатов: <b>{groups_count}</b>\n"
+
+            f"📊 Участников в статистике чатов: <b>{members_count}</b>",
 
             parse_mode="HTML"
 
@@ -2122,11 +2153,7 @@ async def admin_restore_db(message: types.Message):
 
     except Exception as e:
 
-        db = sqlite3.connect("game_v2.db")
-
-        cur = db.cursor()
-
-        await message.reply(f"❌ <b>Ошибка при восстановлении:</b>\n<code>{e}</code>", parse_mode="HTML")
+        await message.reply(f"❌ Ошибка при восстановлении базы: <code>{e}</code>", parse_mode="HTML")
 
 
 
@@ -3747,13 +3774,45 @@ async def auto_backup_db():
 
             db.commit()
 
+            snap_path = "auto_backup_full.db"
+
+            snap_conn = sqlite3.connect(snap_path)
+
+            db.backup(snap_conn)
+
+            snap_conn.close()
+
+ 
+
+            cur.execute("SELECT COUNT(*), COALESCE(SUM(energy), 0) FROM users")
+
+            u_cnt, sum_en = cur.fetchone()
+
+            cur.execute("SELECT COUNT(*) FROM referrals WHERE rewarded = 1")
+
+            (r_cnt,) = cur.fetchone()
+
+            cur.execute("SELECT COUNT(*) FROM chat_members")
+
+            (m_cnt,) = cur.fetchone()
+
+ 
+
             await bot.send_document(
 
                 chat_id=ADMIN_ID,
 
-                document=FSInputFile("game_v2.db"),
+                document=FSInputFile(snap_path),
 
-                caption="🔄 <b>Автосохранение базы данных (раз в 6 часов).</b>\nЕсли перезапустите сервер, просто перешлите этот файл обратно боту.",
+                caption=(
+
+                    f"🔄 <b>Автосохранение полной базы (раз в 6 часов)</b>\n"
+
+                    f"👥 Игроков: <b>{u_cnt}</b> ({sum_en}⚡) | 🤝 Рефов: <b>{r_cnt}</b> | 📊 Чаты: <b>{m_cnt}</b>\n\n"
+
+                    f"<i>Сохранены все таблицы. Для восстановления просто перешлите этот файл боту.</i>"
+
+                ),
 
                 parse_mode="HTML"
 
