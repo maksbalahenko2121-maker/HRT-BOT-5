@@ -867,6 +867,8 @@ def main_keyboard(user_id, level, energy, need):
 
             buttons.append([InlineKeyboardButton(text="⚡ Впитать энергию", callback_data=f"farm_{user_id}")])
 
+            buttons.append([InlineKeyboardButton(text="🔮 Лавка читера", callback_data="boost_shop")]),
+
             buttons.append([InlineKeyboardButton(text="🏆 Топ-10", callback_data=f"top_{user_id}")]) 
 
             buttons.append([InlineKeyboardButton(text="👥 Пригласить друга (+50⚡)", callback_data=f"ref_{user_id}")])
@@ -4341,7 +4343,13 @@ async def evening_chat_summary():
 
 from chat_extra import setup_chat_extra
 
-setup_chat_extra(dp, bot, cur, db, ADMIN_ID, LEVELS, get_user, active_emoji_quiz)
+setup_chat_extra(
+
+    dp, bot, cur, db, ADMIN_ID, LEVELS, get_user, active_emoji_quiz,
+
+    cmd_start, cmd_road, cmd_top, cmd_promo
+
+)
 
 
 
