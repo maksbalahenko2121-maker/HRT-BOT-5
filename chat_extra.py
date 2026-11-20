@@ -1,12 +1,10 @@
-import random
-
 import sqlite3
 
 import time
 
 from datetime import datetime
 
-from aiogram import Bot, Dispatcher, F, types
+from aiogram import Bot, Dispatcher, types
 
  
 
@@ -46,15 +44,17 @@ PERSONAL_DOSSIER_QUOTES = [
 
  
 
+DOSSIER_CMDS = {"профиль", "кто я", "кто ты", "статус"}
+
+ 
+
  
 
 def setup_chat_extra(dp: Dispatcher, bot: Bot, cur, db, admin_id: int, levels: dict, get_user_fn):
 
  
 
-    @dp.message(F.text.lower().in_({"профиль", "кто я", "кто ты", "статус"}))
-
-    async def handle_user_dossier(message: types.Message):
+    async def send_user_dossier(message: types.Message):
 
         if message.chat.type not in ("group", "supergroup"):
 
@@ -86,23 +86,23 @@ def setup_chat_extra(dp: Dispatcher, bot: Bot, cur, db, admin_id: int, levels: d
 
             if uid == admin_id:
 
-                role_str = "👑 Создатель бота"
+                role_str = "👑 Создатель"
 
             elif member.status == "creator":
 
-                role_str = "👑 Создатель чата"
+                role_str = "👑 Создатель"
 
             elif member.status == "administrator":
 
-                role_str = "🛡 Админ чата"
+                role_str = "🛡 Админ"
 
             else:
 
-                role_str = "Участник беседы"
+                role_str = "Участник"
 
         except Exception:
 
-            role_str = "Участник беседы"
+            role_str = "Участник"
 
  
 
@@ -176,7 +176,7 @@ def setup_chat_extra(dp: Dispatcher, bot: Bot, cur, db, admin_id: int, levels: d
 
                 hero_short = lvl_data.get("name").split(" (").pop(0)
 
-                hero_line = f"{hero_short} (Ур. {g_lvl} — <code>{g_energy} / {lvl_data.get('need')}⚡</code>)"
+                hero_line = f"{hero_short} (Ур. {g_lvl} ∙ <code>{g_energy}/{lvl_data.get('need')}⚡</code>)"
 
             else:
 
@@ -200,21 +200,23 @@ def setup_chat_extra(dp: Dispatcher, bot: Bot, cur, db, admin_id: int, levels: d
 
         dossier_text = (
 
-            f"╭── 🎴 <b>ДОСЬЕ ШИНОБИ</b> ──╮\n"
+            f"🎴 <b>ДОСЬЕ ШИНОБИ</b>\n"
 
-            f"👤 <b>Имя:</b> <a href=\"tg://user?id={uid}\"><b>{uname}</b></a> <i>({role_str})</i>\n"
+            f"━━━━━━━━━━━━━━\n"
+
+            f"👤 <a href=\"tg://user?id={uid}\"><b>{uname}</b></a> ∙ <i>{role_str}</i>\n"
 
             f"🦸 <b>Герой:</b> {hero_line}\n"
 
-            f"🏆 <b>Рейтинг:</b> #{chat_rank} в этом чате | #{global_rank} во всём боте\n"
+            f"🏆 <b>Топ:</b> #{chat_rank} в чате | #{global_rank} в боте\n"
 
-            f"💬 <b>Болтливость:</b> {msg_total} сообщ. <i>(сегодня: +{msg_today})</i>\n"
+            f"💬 <b>Чат:</b> {msg_total} сообщ. <i>(+{msg_today} сегодня)</i>\n"
 
-            f"🧠 <b>Угадано в викторине:</b> {quiz_wins} аниме\n"
+            f"🧠 <b>Викторина:</b> {quiz_wins} побед\n"
 
-            f"📅 <b>Первое появление:</b> {first_date_str} <i>(в чате {days_in_chat} дн.)</i>\n"
+            f"📅 <b>В чате с:</b> {first_date_str} <i>({days_in_chat} дн.)</i>\n"
 
-            f"╰────────────────────╯\n\n"
+            f"━━━━━━━━━━━━━━\n"
 
             f"😤 <i>«{quote_line}»</i>"
 
@@ -222,3 +224,20 @@ def setup_chat_extra(dp: Dispatcher, bot: Bot, cur, db, admin_id: int, levels: d
 
         await message.reply(dossier_text, parse_mode="HTML", disable_web_page_preview=True)
 
+ 
+
+    @dp.message.outer_middleware()
+
+    async def chat_extra_middleware(handler, event: types.Message, data: dict):
+
+        if event.chat and event.chat.type in ("group", "supergroup") and event.text:
+
+            clean_cmd = event.text.strip().lower()
+
+            if clean_cmd in DOSSIER_CMDS:
+
+                await send_user_dossier(event)
+
+                return
+
+        return await handler(event, data)
