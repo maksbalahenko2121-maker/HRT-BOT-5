@@ -879,7 +879,7 @@ def main_keyboard(user_id, level, energy, need):
 
     buttons.append([InlineKeyboardButton(text="👥 Пригласить друга (+50⚡)", callback_data=f"ref_{user_id}")])
 
-    buttons.append([InlineKeyboardButton(text="📖 Информация и правила", url="https://telegra.ph")]
+    buttons.append([InlineKeyboardButton(text="📖 Информация и правила", url="https://telegra.ph")]) 
 
     return InlineKeyboardMarkup(inline_keyboard=buttons)
 
