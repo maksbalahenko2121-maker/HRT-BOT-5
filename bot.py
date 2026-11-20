@@ -867,19 +867,9 @@ def main_keyboard(user_id, level, energy, need):
 
             buttons.append([InlineKeyboardButton(text="⚡ Впитать энергию", callback_data=f"farm_{user_id}")])
 
-        buttons.append([InlineKeyboardButton(text="🛒 Лавка читера (Бусты за Stars)", callback_data=f"shop_{user_id}")])
+            buttons.append([InlineKeyboardButton(text="🏆 Топ-10", callback_data=f"top_{user_id}")]) 
 
-    buttons.append([
-
-        InlineKeyboardButton(text="🗺 Дорога славы", callback_data=f"levels_{user_id}"),
-
-        InlineKeyboardButton(text="🏆 Топ-10", callback_data=f"top_{user_id}")
-
-    ])
-
-    buttons.append([InlineKeyboardButton(text="👥 Пригласить друга (+50⚡)", callback_data=f"ref_{user_id}")])
-
-    buttons.append([InlineKeyboardButton(text="📖 Информация и правила", url="https://telegra.ph/Oznakomlenie-11-20")]) 
+            buttons.append([InlineKeyboardButton(text="👥 Пригласить друга (+50⚡)", callback_data=f"ref_{user_id}")])
 
     return InlineKeyboardMarkup(inline_keyboard=buttons)
 
