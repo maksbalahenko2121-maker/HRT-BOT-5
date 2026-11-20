@@ -590,27 +590,27 @@ def setup_chat_extra(dp: Dispatcher, bot: Bot, cur, db, admin_id: int, levels: d
 
                 return
 
-            if btn_text == "🦸 Мой герой":
+            if btn_text == "🦸 Мой герой" and start_fn:
 
-                await event.answer("💡 Нажми /start, чтобы открыть карточку своего героя!")
-
-                return
-
-            elif btn_text == "🛤 Дорога славы":
-
-                await event.answer("💡 Нажми /road, чтобы открыть Дорогу славы!")
+                await start_fn(event)
 
                 return
 
-            elif btn_text == "🏆 Топ 10":
+            elif btn_text == "🛤 Дорога славы" and road_fn:
 
-                await event.answer("💡 Нажми /top, чтобы посмотреть Топ-10 игроков!")
+                await road_fn(event)
 
                 return
 
-            elif btn_text == "🎟 Ввести промокод":
+            elif btn_text == "🏆 Топ 10" and top_fn:
 
-                await event.answer("💡 Нажми /promo, чтобы активировать промокод!")
+                await top_fn(event)
+
+                return
+
+            elif btn_text == "🎟 Ввести промокод" and promo_fn:
+
+                await promo_fn(event)
 
                 return
 
