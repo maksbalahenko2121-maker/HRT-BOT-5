@@ -4349,7 +4349,7 @@ async def evening_chat_summary():
 
 from chat_extra import setup_chat_extra
 
-setup_chat_extra(dp, bot, cur, db, ADMIN_ID, LEVELS, get_user)
+setup_chat_extra(dp, bot, cur, db, ADMIN_ID, LEVELS, get_user, active_emoji_quiz)
 
 
 
