@@ -10,7 +10,7 @@ from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
 
  
 
-INFO_URL = "https://telegra.ph"  # <-- Вставьте сюда вашу ссылку со статьёй из Telegraph
+INFO_URL = "https://telegra.ph/Oznakomlenie-11-20"  # <-- Вставьте сюда вашу ссылку со статьёй из Telegraph
 
  
 
