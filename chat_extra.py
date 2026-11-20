@@ -50,28 +50,6 @@ PERSONAL_DOSSIER_QUOTES = [
 
 def setup_chat_extra(dp: Dispatcher, bot: Bot, cur, db, admin_id: int, levels: dict, get_user_fn):
 
-    with sqlite3.connect("game_v2.db") as conn:
-
-        c = conn.cursor()
-
-        for col_sql in [
-
-            "ALTER TABLE chat_members ADD COLUMN quiz_wins INTEGER DEFAULT 0",
-
-            "ALTER TABLE chat_members ADD COLUMN first_seen_ts INTEGER DEFAULT 0",
-
-        ]:
-
-            try:
-
-                c.execute(col_sql)
-
-            except sqlite3.OperationalError:
-
-                pass
-
-        conn.commit()
-
  
 
     @dp.message(F.text.lower().in_({"профиль", "кто я", "кто ты", "статус"}))
@@ -131,6 +109,26 @@ def setup_chat_extra(dp: Dispatcher, bot: Bot, cur, db, admin_id: int, levels: d
         with sqlite3.connect("game_v2.db") as conn:
 
             c = conn.cursor()
+
+            for col_sql in [
+
+                "ALTER TABLE chat_members ADD COLUMN quiz_wins INTEGER DEFAULT 0",
+
+                "ALTER TABLE chat_members ADD COLUMN first_seen_ts INTEGER DEFAULT 0",
+
+            ]:
+
+                try:
+
+                    c.execute(col_sql)
+
+                except sqlite3.OperationalError:
+
+                    pass
+
+            conn.commit()
+
+ 
 
             c.execute(
 
@@ -223,3 +221,4 @@ def setup_chat_extra(dp: Dispatcher, bot: Bot, cur, db, admin_id: int, levels: d
         )
 
         await message.reply(dossier_text, parse_mode="HTML", disable_web_page_preview=True)
+
