@@ -97,6 +97,231 @@ def setup_chat_extra(dp: Dispatcher, bot: Bot, cur, db, admin_id: int, levels: d
                 role_str = "🛡 Админ"
 
             else:
+import sqlite3
+
+import time
+
+from datetime import datetime
+
+from aiogram import Bot, Dispatcher, types
+
+ 
+
+PERSONAL_DOSSIER_QUOTES = [
+
+    "Хмф, ну подумаешь, зашёл в профиль… Не зазнавайся, до Хокаге тебе ещё далеко, бака!",
+
+    "Я-я не собирал на тебя досье специально! Просто само в базу записалось, дурак!",
+
+    "Пф, цифры как цифры… Но если уйдёшь из чата, я, может быть, чуть-чуть соскучусь!",
+
+    "Б-бака! Не пялься так гордо на свою статистику, тренируйся давай!",
+
+    "Н-ну, для такого неуклюжего шиноби показатели вполне терпимые… но не расслабляйся!",
+
+    "Ой, всё! Не смотри на меня так, будто ждёшь похвалы за эти цифры!",
+
+    "Я запомнил(а) тебя с первого сообщения… но не думай, что ты особенный(ая), дурак!",
+
+    "Хм! Будь благодарен(на), что я вообще веду учёт твоих похождений в этой беседе!",
+
+    "Т-ты всё равно без моих подсказок пропадёшь, так что держись поближе к чату!",
+
+    "Не вздумай улыбаться! Это чистая случайность, что у тебя такое неплохое досье!",
+
+    "М-мне абсолютно всё равно, на каком ты месте в рейтинге! Понятно?!",
+
+    "С такими темпами, может, когда-нибудь и станешь нормальным сенсеем… наверное!",
+
+    "Б-бесишь! Почему я вечно должен(на) следить за твоей статистикой?!",
+
+    "Хмф! Можешь считать, что тебе повезло попасть в этот чат, бака!",
+
+    "Я вовсе не ждал(а), когда ты проверишь свой профиль! Просто держу в курсе!",
+
+]
+
+ 
+
+DOSSIER_CMDS = {"профиль", "кто я", "кто ты", "статус"}
+
+ 
+
+ 
+
+def ensure_chat_columns(c):
+
+    for col_sql in [
+
+        "ALTER TABLE chat_members ADD COLUMN quiz_wins INTEGER DEFAULT 0",
+
+        "ALTER TABLE chat_members ADD COLUMN first_seen_ts INTEGER DEFAULT 0",
+
+    ]:
+
+        try:
+
+            c.execute(col_sql)
+
+        except sqlite3.OperationalError:
+
+            pass
+
+ 
+
+ 
+
+def setup_chat_extra(dp: Dispatcher, bot: Bot, cur, db, admin_id: int, levels: dict, get_user_fn):
+
+ 
+
+    async def check_quiz_answer_safe(event: types.Message):
+
+        try:
+
+            import bot as main_bot
+
+            quiz_dict = getattr(main_bot, "active_emoji_quiz", {})
+
+        except Exception:
+
+            return False
+
+ 
+
+        cid = event.chat.id
+
+        if cid not in quiz_dict or not event.text or not event.from_user or event.from_user.is_bot:
+
+            return False
+
+ 
+
+        guess = (
+
+            event.text.strip().lower()
+
+            .replace(",", "").replace(".", "").replace("!", "")
+
+            .replace(":", "").replace("-", " ").replace("ё", "е")
+
+        )
+
+        guess = " ".join(guess.split())
+
+        quiz = quiz_dict.get(cid)
+
+        if not quiz:
+
+            return False
+
+ 
+
+        clean_answers = [
+
+            " ".join(a.lower().replace("-", " ").replace("ё", "е").split())
+
+            for a in quiz.get("answers", [])
+
+        ]
+
+        if guess not in clean_answers:
+
+            return False
+
+ 
+
+        title = quiz.get("title")
+
+        quiz_dict.pop(cid, None)
+
+ 
+
+        with sqlite3.connect("game_v2.db") as conn:
+
+            conn.execute("PRAGMA busy_timeout=5000;")
+
+            c = conn.cursor()
+
+            ensure_chat_columns(c)
+
+            c.execute(
+
+                "UPDATE chat_members SET quiz_wins = quiz_wins + 1 WHERE chat_id = ? AND user_id = ?",
+
+                (cid, event.from_user.id)
+
+            )
+
+            conn.commit()
+
+ 
+
+        uname = (event.from_user.full_name or event.from_user.username or "Шиноби").replace("<", "").replace(">", "")
+
+        await event.reply(
+
+            f"🎉 <b>ЕСТЬ ПРАВИЛЬНЫЙ ОТВЕТ!</b>\n\n"
+
+            f"🏆 Самый быстрый знаток аниме: <a href=\"tg://user?id={event.from_user.id}\"><b>{uname}</b></a>\n"
+
+            f"🎬 Загаданный тайтл: <b>{title}</b>\n\n"
+
+            f"<i>Напиши <code>викторина</code> для нового раунда!</i>",
+
+            parse_mode="HTML",
+
+            disable_web_page_preview=True
+
+        )
+
+        return True
+
+ 
+
+    async def send_user_dossier(message: types.Message):
+
+        if message.chat.type not in ("group", "supergroup"):
+
+            return
+
+ 
+
+        target = message.reply_to_message.from_user if (message.reply_to_message and message.reply_to_message.from_user) else message.from_user
+
+        if target.is_bot:
+
+            return await message.reply("😤 Я — великий Цундере-бот этой беседы! Нечего в моё досье заглядывать!")
+
+ 
+
+        cid = message.chat.id
+
+        uid = target.id
+
+        uname = (target.full_name or target.username or "Шиноби").replace("<", "").replace(">", "")
+
+        now = int(time.time())
+
+ 
+
+        try:
+
+            member = await bot.get_chat_member(cid, uid)
+
+            if uid == admin_id:
+
+                role_str = "👑 Создатель"
+
+            elif member.status == "creator":
+
+                role_str = "👑 Создатель"
+
+            elif member.status == "administrator":
+
+                role_str = "🛡 Админ"
+
+            else:
 
                 role_str = "Участник"
 
@@ -108,25 +333,11 @@ def setup_chat_extra(dp: Dispatcher, bot: Bot, cur, db, admin_id: int, levels: d
 
         with sqlite3.connect("game_v2.db") as conn:
 
+            conn.execute("PRAGMA busy_timeout=5000;")
+
             c = conn.cursor()
 
-            for col_sql in [
-
-                "ALTER TABLE chat_members ADD COLUMN quiz_wins INTEGER DEFAULT 0",
-
-                "ALTER TABLE chat_members ADD COLUMN first_seen_ts INTEGER DEFAULT 0",
-
-            ]:
-
-                try:
-
-                    c.execute(col_sql)
-
-                except sqlite3.OperationalError:
-
-                    pass
-
-            conn.commit()
+            ensure_chat_columns(c)
 
  
 
@@ -237,6 +448,10 @@ def setup_chat_extra(dp: Dispatcher, bot: Bot, cur, db, admin_id: int, levels: d
             if clean_cmd in DOSSIER_CMDS:
 
                 await send_user_dossier(event)
+
+                return
+
+            if await check_quiz_answer_safe(event):
 
                 return
 
