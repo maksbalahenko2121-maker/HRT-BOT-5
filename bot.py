@@ -3364,6 +3364,129 @@ async def try_execute_rp_technique(message: types.Message) -> bool:
                     target_link = f'<a href="https://t.me{uname_clean}"><b>{clean_tag}</b></a>'
 
             else:
+async def try_execute_rp_technique(message: types.Message) -> bool:
+
+    if message.chat.type not in ("group", "supergroup") or not message.text:
+
+        return False
+
+ 
+
+    first_line, *rest_lines = message.text.strip().split("\n", 1)
+
+    first_line = first_line.strip()
+
+    speech = rest_lines.pop(0).strip() if rest_lines else ""
+
+ 
+
+    lower_line = first_line.lower()
+
+    if lower_line == "цундере" or lower_line.startswith("цундере "):
+
+        await handle_tsundere_translator(message)
+
+        return True
+
+ 
+
+    matched_cmd = ""
+
+    rest_text = ""
+
+ 
+
+    for cmd_key in sorted(RP_TECHNIQUES.keys(), key=len, reverse=True):
+
+        if lower_line == cmd_key or lower_line.startswith(cmd_key + " "):
+
+            matched_cmd = cmd_key
+
+            rest_text = first_line[len(cmd_key):].strip()
+
+            break
+
+ 
+
+    if not matched_cmd:
+
+        return False
+
+ 
+
+    sender = message.from_user
+
+    target_link = ""
+
+ 
+
+    if message.reply_to_message and message.reply_to_message.from_user:
+
+        target_user = message.reply_to_message.from_user
+
+        if target_user.id == sender.id:
+
+            await message.reply("😤 Н-нельзя применять это на самого себя, бака!")
+
+            return True
+
+        if target_user.id == bot.id:
+
+            await message.reply("🛡️ Хмф! Руки прочь от бота!")
+
+            return True
+
+        target_link = make_user_link(target_user)
+
+    elif rest_text:
+
+        mention_user = None
+
+        if message.entities:
+
+            for ent in message.entities:
+
+                if ent.type == "text_mention" and ent.user:
+
+                    mention_user = ent.user
+
+                    break
+
+        if mention_user:
+
+            target_link = make_user_link(mention_user)
+
+        else:
+
+            raw_tag, *_ = rest_text.split()
+
+            clean_tag = raw_tag.replace("<", "").replace(">", "")
+
+            if clean_tag.startswith("@"):
+
+                uname_clean = clean_tag[1:]
+
+                cur.execute(
+
+                    "SELECT user_id, user_name FROM chat_members WHERE chat_id = ? AND LOWER(user_name) = ?",
+
+                    (message.chat.id, uname_clean.lower())
+
+                )
+
+                row = cur.fetchone()
+
+                if row:
+
+                    db_uid, db_uname = row
+
+                    target_link = f'<a href="tg://user?id={db_uid}"><b>{db_uname}</b></a>'
+
+                else:
+
+                    target_link = f'<a href="https://t.me{uname_clean}"><b>{clean_tag}</b></a>'
+
+            else:
 
                 target_link = f"<b>{clean_tag}</b>"
 
