@@ -3395,60 +3395,7 @@ async def try_execute_rp_technique(message: types.Message) -> bool:
 
     await message.answer(result_text, parse_mode="HTML", disable_web_page_preview=True)
 
-    return True
-
-
- 
-                
-async def try_execute_rp_technique(message: types.Message) -> bool:
-
-    if message.chat.type not in ("group", "supergroup") or not message.text:
-
-        return False
-
- 
-
-    first_line, *rest_lines = message.text.strip().split("\n", 1)
-
-    first_line = first_line.strip()
-
-    speech = rest_lines.pop(0).strip() if rest_lines else ""
-
- 
-
-    lower_line = first_line.lower()
-
-    if lower_line == "цундере" or lower_line.startswith("цундере "):
-
-        await handle_tsundere_translator(message)
-
-        return True
-
- 
-
-    matched_cmd = ""
-
-    rest_text = ""
-
- 
-
-    for cmd_key in sorted(RP_TECHNIQUES.keys(), key=len, reverse=True):
-
-        if lower_line == cmd_key or lower_line.startswith(cmd_key + " "):
-
-            matched_cmd = cmd_key
-
-            rest_text = first_line[len(cmd_key):].strip()
-
-            break
-
- 
-
-    if not matched_cmd:
-
-        return False
-
-
+    
 
 
 @dp.callback_query(F.data.startswith("back_"))
@@ -3467,7 +3414,6 @@ async def cb_back(call: types.CallbackQuery):
 
  
 
- 
 
 @dp.callback_query(F.data.startswith("levels_"))
 
