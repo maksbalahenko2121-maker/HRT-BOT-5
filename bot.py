@@ -834,19 +834,19 @@ def bottom_menu_keyboard():
 
     return ReplyKeyboardMarkup(
 
-        keyboard=[
+    keyboard=[
 
-            [KeyboardButton(text="🎴 Мой герой"), KeyboardButton(text="⚡ Впитать энергию")],
+        [KeyboardButton(text="🦸 Мой герой"), KeyboardButton(text="🛤 Дорога славы")],
 
-            [KeyboardButton(text="🛒 Лавка читера"), KeyboardButton(text="🗺 Дорога славы")],
+        [KeyboardButton(text="🏆 Топ 10"), KeyboardButton(text="🎟 Ввести промокод")],
 
-            [KeyboardButton(text="🏆 Топ-10"), KeyboardButton(text="👥 Друзья (+50⚡)")]
+        [KeyboardButton(text="📖 Информация и правила")],
 
-        ],
+    ],
 
-        resize_keyboard=True,
+    resize_keyboard=True,
 
-        one_time_keyboard=True
+    is_persistent=True
 
     )
  
