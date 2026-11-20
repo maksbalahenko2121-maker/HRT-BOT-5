@@ -580,6 +580,32 @@ def setup_chat_extra(dp: Dispatcher, bot: Bot, cur, db, admin_id: int, levels: d
 
     async def chat_extra_middleware(handler, event: types.Message, data: dict):
 
+           if event.chat and event.chat.type == "private" and event.text:
+
+            btn_text = event.text.strip()
+
+            if btn_text == "📖 Информация и правила":
+
+                await handle_show_info(event)
+
+                return
+
+            if btn_text == "🦸 Мой герой":
+
+                event.text = "/start"
+
+            elif btn_text == "🛤 Дорога славы":
+
+                event.text = "/road"
+
+            elif btn_text == "🏆 Топ 10":
+
+                event.text = "/top"
+
+            elif btn_text == "🎟 Ввести промокод":
+
+                event.text = "/promo"
+
         if event.chat and event.chat.type in ("group", "supergroup") and event.text:
 
             full_text = event.text.strip()
