@@ -3364,6 +3364,7 @@ async def try_execute_rp_technique(message: types.Message) -> bool:
                     target_link = f'<a href="https://t.me{uname_clean}"><b>{clean_tag}</b></a>'
 
             else:
+                
 async def try_execute_rp_technique(message: types.Message) -> bool:
 
     if message.chat.type not in ("group", "supergroup") or not message.text:
