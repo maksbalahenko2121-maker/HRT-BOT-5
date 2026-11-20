@@ -72,27 +72,19 @@ def ensure_chat_columns(c):
 
  
 
-def setup_chat_extra(dp: Dispatcher, bot: Bot, cur, db, admin_id: int, levels: dict, get_user_fn):
+def setup_chat_extra(dp: Dispatcher, bot: Bot, cur, db, admin_id: int, levels: dict, get_user_fn, active_quiz_dict: dict = None):
+
+    if active_quiz_dict is None:
+
+        active_quiz_dict = {}
 
  
 
     async def check_quiz_answer_safe(event: types.Message):
 
-        try:
-
-            import bot as main_bot
-
-            quiz_dict = getattr(main_bot, "active_emoji_quiz", {})
-
-        except Exception:
-
-            return False
-
- 
-
         cid = event.chat.id
 
-        if cid not in quiz_dict or not event.text or not event.from_user or event.from_user.is_bot:
+        if cid not in active_quiz_dict or not event.text or not event.from_user or event.from_user.is_bot:
 
             return False
 
@@ -110,7 +102,7 @@ def setup_chat_extra(dp: Dispatcher, bot: Bot, cur, db, admin_id: int, levels: d
 
         guess = " ".join(guess.split())
 
-        quiz = quiz_dict.get(cid)
+        quiz = active_quiz_dict.get(cid)
 
         if not quiz:
 
@@ -134,7 +126,7 @@ def setup_chat_extra(dp: Dispatcher, bot: Bot, cur, db, admin_id: int, levels: d
 
         title = quiz.get("title")
 
-        quiz_dict.pop(cid, None)
+        active_quiz_dict.pop(cid, None)
 
  
 
