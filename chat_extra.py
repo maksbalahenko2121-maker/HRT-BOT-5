@@ -576,7 +576,7 @@ def setup_chat_extra(dp: Dispatcher, bot: Bot, cur, db, admin_id: int, levels: d
 
  
 
-    @dp.message.outer_middleware()
+    @@dp.message.outer_middleware()
 
     async def chat_extra_middleware(handler, event: types.Message, data: dict):
 
@@ -592,19 +592,27 @@ def setup_chat_extra(dp: Dispatcher, bot: Bot, cur, db, admin_id: int, levels: d
 
             if btn_text == "🦸 Мой герой":
 
-                event.text = "/start"
+                await event.answer("💡 Нажми /start, чтобы открыть карточку своего героя!")
+
+                return
 
             elif btn_text == "🛤 Дорога славы":
 
-                event.text = "/road"
+                await event.answer("💡 Нажми /road, чтобы открыть Дорогу славы!")
+
+                return
 
             elif btn_text == "🏆 Топ 10":
 
-                event.text = "/top"
+                await event.answer("💡 Нажми /top, чтобы посмотреть Топ-10 игроков!")
+
+                return
 
             elif btn_text == "🎟 Ввести промокод":
 
-                event.text = "/promo"
+                await event.answer("💡 Нажми /promo, чтобы активировать промокод!")
+
+                return
 
  
 
@@ -613,6 +621,7 @@ def setup_chat_extra(dp: Dispatcher, bot: Bot, cur, db, admin_id: int, levels: d
             full_text = event.text.strip()
 
             lower_text = full_text.lower()
+
 
  
 
