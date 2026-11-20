@@ -4283,8 +4283,15 @@ async def evening_chat_summary():
             cur.execute("UPDATE chat_members SET msg_today = 0")
 
             db.commit()
-    
-    
+
+
+
+from chat_extra import setup_chat_extra
+
+setup_chat_extra(dp, bot, cur, db, ADMIN_ID, LEVELS, get_user)
+
+
+
 async def main():
     
     await set_bot_commands()
