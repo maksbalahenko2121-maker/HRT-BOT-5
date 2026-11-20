@@ -372,6 +372,28 @@ def init_db():
 
     """)
     
+    cur.execute("""
+
+    CREATE TABLE IF NOT EXISTS chat_members (
+
+        chat_id INTEGER,
+
+        user_id INTEGER,
+
+        user_name TEXT,
+
+        msg_total INTEGER DEFAULT 0,
+
+        msg_today INTEGER DEFAULT 0,
+
+        last_msg_ts INTEGER DEFAULT 0,
+
+        PRIMARY KEY (chat_id, user_id)
+
+    )
+
+    """)
+    
     db.commit()
 
 
@@ -2907,61 +2929,8 @@ async def handle_chat_activity_stats(message: types.Message):
 
 
     
-active_emoji_quiz = {}
 
-used_quiz_indices = {}
 
- 
-
- 
-
-def get_next_quiz_for_chat(cid: int):
-
-    used = used_quiz_indices.setdefault(cid, set())
-
-    available = [i for i in range(len(ANIME_EMOJI_QUIZ)) if i not in used]
-
-    if not available:
-
-        used.clear()
-
-        available = list(range(len(ANIME_EMOJI_QUIZ)))
-
-    chosen_idx = random.choice(available)
-
-    used.add(chosen_idx)
-
-    emojis, answers, title = ANIME_EMOJI_QUIZ[chosen_idx]
-
-    return emojis, answers, title, len(available) - 1
-
- 
-
- 
-
-@dp.message(F.text.lower().in_({"викторина", "эмодзи", "сдаюсь"}))
-
-async def handle_emoji_quiz_cmd(message: types.Message):
-
-    if message.chat.type not in ("group", "supergroup"):
-
-        return await message.reply("🧠 Викторина работает в групповых чатах! Добавь меня в беседу с друзьями!")
-
- 
-
-    cid = message.chat.id
-
-    cmd = message.text.strip().lower()
-
-    now = int(time.time())
-
- 
-
-    if cmd == "сдаюсь":
-
-        quiz = active_emoji_quiz.get(cid)
-
- 
 active_emoji_quiz = {}
 
 used_quiz_indices = {}
@@ -3392,7 +3361,7 @@ async def try_execute_rp_technique(message: types.Message) -> bool:
 
                 else:
 
-                    target_link = f'<a href="https://t.me{uname_clean}"><b>{clean_tag}</b></a>'
+                    target_link = f'<a href="https://t.me/{uname_clean}"><b>{clean_tag}</b></a>'
 
             else:
 
