@@ -3448,37 +3448,6 @@ async def try_execute_rp_technique(message: types.Message) -> bool:
 
         return False
 
- 
-
-    sender = message.from_user
-
-    target_link = ""
-
- 
-
-    if message.reply_to_message and message.reply_to_message.from_user:
-
-        target_user = message.reply_to_message.from_user
-
-        if target_user.id == sender.id:
-
-            await message.reply("😤 Н-нельзя применять это на самого себя, бака!")
-
-            return True
-
-        if target_user.id == bot.id:
-
-            await message.reply("🛡️ Хмф! Руки прочь от бота!")
-
-            return True
-
-        target_link = make_user_link(target_user)
-
-    elif rest_text:
-
-        mention_user = None
-
-
 
 
 
