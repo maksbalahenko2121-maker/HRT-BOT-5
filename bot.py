@@ -551,9 +551,9 @@ async def track_groups_middleware(handler, event: types.Message, data: dict):
         db.commit()
 
       
-    if event.chat and event.chat.type in ("group", "supergroup") and event.text and event.from_user and not event.from_user.is_bot:
+    if event.chat and event.chat.type in ("group", "supergroup") and event.text and event.from_user and not event.from_user.is_bot and not event.reply_to_message:
 
-        await process_emoji_quiz_answer(event)
+        await try_execute_rp_technique(event)
 
     return await handler(event, data)
  
