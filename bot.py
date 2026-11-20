@@ -8,7 +8,7 @@ import sqlite3
 
 import time
 
-from datetime import datetime
+from datetime import datetime, timezone, timedelta
 
 from urllib.parse import quote
 
@@ -2614,8 +2614,7 @@ async def handle_chat_moderation(message: types.Message):
 
     if message.chat.type not in ("group", "supergroup") or cmd not in ("бан", "разбан", "мут", "размут"):
 
-        return await handle_rp_commands(message)
-
+        return await try_execute_rp_technique(message)
  
 
     is_boss = await is_chat_admin_or_creator(message.chat.id, message.from_user.id)
@@ -3183,124 +3182,247 @@ async def auto_emoji_quiz_loop():
 
 
 
+RP_TECHNIQUES = {
+
+    "обнять": ("🫂", "{s} крепко обнял(а) {t} <i>(«Н-не подумай ничего такого, бака! Просто ты замёрз(ла)!»)</i>"),
+
+    "погладить": ("🤚", "{s} неловко погладил(а) {t} по голове <i>(«Хмф, радуйся, что я сегодня в хорошем настроении!»)</i>"),
+
+    "бака": ("😤", "{s} ткнул(а) пальцем в {t} и фыркнул(а): <i>«Б-бака! Совсем ничего не понимаешь!»</i>"),
+
+    "укусить": ("🧛", "{s} цапнул(а) {t} за плечо <i>(«Это тебе за то, что раздражаешь меня!»)</i>"),
+
+    "кусь": ("🐾", "{s} сделал(а) лёгкий кусь за ушко {t} <i>(«Я-я просто проверял(а), не спишь ли ты, дурак!»)</i>"),
+
+    "тиск": ("🤗", "{s} изо всех сил затискал(а) {t} <i>(«Н-не вырывайся, бака, я просто проверяю твою выносливость!»)</i>"),
+
+    "чаек": ("🍵", "{s} поставил(а) кружку горячего чая перед {t} <i>(«Заварил(а) случайно слишком много, так что пей, пока не остыло!»)</i>"),
+
+    "чаёк": ("🍵", "{s} поставил(а) кружку горячего чая перед {t} <i>(«Заварил(а) случайно слишком много, так что пей, пока не остыло!»)</i>"),
+
+    "поцеловать": ("💋", "{s} быстро чмокнул(а) {t} в щёку и покраснел(а) <i>(«З-забудь об этом немедленно, понятно?!»)</i>"),
+
+    "похвалить": ("✨", "{s}, отвернувшись, буркнул(а) для {t}: <i>«Н-ну, в этот раз ты и правда молодец… но не зазнавайся!»</i>"),
+
+    "обида": ("💢", "{s} надул(а) щёки и отвернулся(ась) от {t} <i>(«Всё, я с тобой больше не разговариваю, хмф!»)</i>"),
+
+    "любить": ("❤️", "{s} смущённо прошептал(а) {t}: <i>«Я-я не то чтобы люблю тебя… просто без тебя скучно, бака!»</i>"),
+
+    "подвал": ("🕯️", "{s} затащил(а) {t} в тёмный подвал Конохи <i>(«Посиди там и подумай над своим поведением, бака!»)</i>"),
+
+    "тюрьма": ("🔒", "{s} упрятал(а) {t} за решётку <i>(«Срок за чрезмерную глупость — пока не поумнеешь!»)</i>"),
+
+    "закопать": ("⛏️", "{s} вырыл(а) ямку и закопал(а) {t} по самую макушку <i>(«Отдохни там немного, а то слишком много болтаешь!»)</i>"),
+
+    "пнуть": ("👟", "{s} отвесил(а) звонкий воспитательный пинок {t} <i>(«Получай, чтобы больше не тормозил(а)!»)</i>"),
+
+    "ударить": ("👊", "{s} вписал(а) мощный цундере-хук {t} <i>(«Сам(а) напросился(ась), я предупреждал(а)!»)</i>"),
+
+    "шлепнуть": ("👋", "{s} звонко шлёпнул(а) {t} <i>(«Н-нечего так себя вести, бака!»)</i>"),
+
+    "шлёпнуть": ("👋", "{s} звонко шлёпнул(а) {t} <i>(«Н-нечего так себя вести, бака!»)</i>"),
+
+    "воспитать": ("📚", "{s} прочитал(а) строгую лекцию для {t} <i>(«Слушай внимательно и записывай, пока я добрый(ая)!»)</i>"),
+
+    "унизить": ("👑", "{s} свысока посмотрел(а) на {t} <i>(«Тебе ещё сто лет тренироваться до моего уровня, слабак!»)</i>"),
+
+}
+
+ 
+
+ 
+
 @dp.message(Command("rp"))
 
 async def cmd_rp_help(message: types.Message):
 
-    await message.reply(
+    rp_list = (
 
-        "🎭 <b>20 АНИМЕ РП-КОМАНД ДЛЯ ЧАТА</b>\n"
+        "😤 <b>ЦУНДЕРЕ РП-КОМАНДЫ В ЧАТЕ</b>\n\n"
 
-        "<i>Ответьте на сообщение друга одним из этих слов:</i>\n\n"
+        "<b>Как использовать:</b>\n"
 
-        "🫂 <b>Тёплые:</b> обнять, погладить, поцеловать, укусить, похвалить, дать пять, укрыть пледом, принести чай\n"
+        "1️⃣ Ответь (Reply) на сообщение друга командой ниже\n"
 
-        "🍜 <b>Угощения:</b> угостить раменом, накормить онигири\n"
+        "2️⃣ Или напиши в чат: <code>обнять @ник</code>\n"
 
-        "⚔️ <b>Боевые и мемы:</b> ударить, подзатыльник, гендзюцу, расэнган, кинуть тапок, связать, вызвать на бой, запечатать, облить водой, спрятать в шкаф",
+        "3️⃣ Нажми <b>Enter</b> и напиши фразу с новой строки — персонаж скажет её после действия!\n\n"
 
-        parse_mode="HTML"
+        "💬 <b>Доступные слова:</b>\n"
+
+        "<code>обнять</code>, <code>погладить</code>, <code>бака</code>, <code>укусить</code>, <code>кусь</code>, <code>тиск</code>, "
+
+        "<code>чаек</code>, <code>поцеловать</code>, <code>похвалить</code>, <code>обида</code>, <code>любить</code>, "
+
+        "<code>подвал</code>, <code>тюрьма</code>, <code>закопать</code>, <code>пнуть</code>, <code>ударить</code>, "
+
+        "<code>шлепнуть</code>, <code>воспитать</code>, <code>унизить</code>"
 
     )
 
- 
-
- 
-
-def get_display_name(user: types.User) -> str:
-
-    name = user.full_name or user.username or "Шиноби"
-
-    return name.replace("<", "").replace(">", "").replace("&", "")
+    await message.reply(rp_list, parse_mode="HTML")
 
  
 
  
 
-@dp.message(F.reply_to_message, F.text)
+def make_user_link(user: types.User) -> str:
 
-async def handle_rp_commands(message: types.Message):
+    safe_name = (user.full_name or user.username or "Шиноби").replace("<", "").replace(">", "")
 
-    if message.chat.type == "private" or message.reply_to_message.from_user.is_bot:
-
-        return
+    return f'<a href="tg://user?id={user.id}"><b>{safe_name}</b></a>'
 
  
 
-    cmd = message.text.strip().lower()
+ 
 
-    if cmd == "цундере" or cmd.startswith("цундере "):
+async def try_execute_rp_technique(message: types.Message) -> bool:
 
-        return await handle_tsundere_translator(message)
-        
+    if message.chat.type not in ("group", "supergroup") or not message.text:
+
+        return False
+
+ 
+
+    lines = message.text.strip().split("\n", 1)
+
+    first_line = lines.strip()
+
+    speech = lines.strip() if len(lines) > 1 else ""
+
+ 
+
+    lower_line = first_line.lower()
+
+    if lower_line == "цундере" or lower_line.startswith("цундере "):
+
+        await handle_tsundere_translator(message)
+
+        return True
+
+ 
+
+    matched_cmd = ""
+
+    rest_text = ""
+
+ 
+
+    for cmd_key in sorted(RP_TECHNIQUES.keys(), key=len, reverse=True):
+
+        if lower_line == cmd_key or lower_line.startswith(cmd_key + " "):
+
+            matched_cmd = cmd_key
+
+            rest_text = first_line[len(cmd_key):].strip()
+
+            break
+
+ 
+
+    if not matched_cmd:
+
+        return False
+
+ 
 
     sender = message.from_user
 
-    target = message.reply_to_message.from_user
+    target_link = ""
 
  
 
-    if sender.id == target.id:
+    if message.reply_to_message and message.reply_to_message.from_user:
 
-        return
+        target_user = message.reply_to_message.from_user
+
+        if target_user.id == sender.id:
+
+            await message.reply("😤 Н-нельзя применять это на самого себя, бака!")
+
+            return True
+
+        if target_user.id == bot.id:
+
+            await message.reply("🛡️ Хмф! Руки прочь от бота!")
+
+            return True
+
+        target_link = make_user_link(target_user)
+
+    elif rest_text:
+
+        mention_user = None
+
+        if message.entities:
+
+            for ent in message.entities:
+
+                if ent.type == "text_mention" and ent.user:
+
+                    mention_user = ent.user
+
+                    break
+
+        if mention_user:
+
+            target_link = make_user_link(mention_user)
+
+        else:
+
+            clean_tag = rest_text.split().replace("<", "").replace(">", "")
+
+            if clean_tag.startswith("@"):
+
+                uname_clean = clean_tag[1:]
+
+                cur.execute(
+
+                    "SELECT user_id, user_name FROM chat_members WHERE chat_id = ? AND LOWER(user_name) = ?",
+
+                    (message.chat.id, uname_clean.lower())
+
+                )
+
+                row = cur.fetchone()
+
+                if row:
+
+                    target_link = f'<a href="tg://user?id={row}"><b>{row}</b></a>'
+
+                else:
+
+                    target_link = f'<a href="https://t.me{uname_clean}"><b>{clean_tag}</b></a>'
+
+            else:
+
+                target_link = f"<b>{clean_tag}</b>"
+
+    else:
+
+        return False
 
  
 
-    s_name = f"<b>{get_display_name(sender)}</b>"
+    emoji, template = RP_TECHNIQUES[matched_cmd]
 
-    t_name = f"<b>{get_display_name(target)}</b>"
+    sender_link = make_user_link(sender)
 
- 
-
-    rp_actions = {
-
-        "обнять": f"🫂✨ {s_name} крепко-крепко обнял(а) {t_name} как Аня своего Пингвина!",
-
-        "погладить": f"👋💖 {s_name} нежно погладил(а) {t_name} по голове. Хороший ученик!",
-
-        "поцеловать": f"💋🌸 {s_name} внезапно поцеловал(а) {t_name} в щёку! Весь чат покраснел!",
-
-        "укусить": f"🧛‍♂️💢 {s_name} сделал(а) внезапный кусь за ушко {t_name} в стиле Незуко!",
-
-        "похвалить": f"🌟🏆 {s_name} похвалил(а) {t_name}: «Ты сражался как настоящий Хокаге!»",
-
-        "дать пять": f"🙌🔥 {s_name} и {t_name} звонко дали друг другу пять!",
-
-        "укрыть пледом": f"🛌💤 {s_name} заботливо укутал(а) {t_name} в тёплый пледик после тяжёлой тренировки.",
-
-        "принести чай": f"🍵🍃 {s_name} заварил(а) и принёс(ла) {t_name} кружку ароматного зелёного чая.",
-
-        "угостить раменом": f"🍜🥢 {s_name} заказал(а) для {t_name} огромную порцию королевского рамена в Ичираку!",
-
-        "накормить онигири": f"🍙😋 {s_name} сунул(а) в рот {t_name} свежий рисовый онигири!",
-
-        "ударить": f"👊💥 {s_name} вписал(а) мощный цундере-хук прямо в челюсть {t_name}!",
-
-        "подзатыльник": f"💢👋 {s_name} отвесил(а) воспитательный подзатыльник {t_name} в стиле Сакуры!",
-
-        "гендзюцу": f"👁🌀 {s_name} активировал(а) Мангекё Шаринган и запер(ла) {t_name} в вечном гендзюцу!",
-
-        "расэнган": f"🌀⚡ {s_name} скрутил(а) в руке мощный Расэнган и отправил(а) {t_name} в полёт до соседнего чата!",
-
-        "кинуть тапок": f"🩴🎯 {s_name} снайперским броском запустил(а) тапок прямо в лоб {t_name}!",
-
-        "связать": f"🪢🖤 {s_name} применил(а) технику теневого связывания и обездвижил(а) {t_name}!",
-
-        "вызвать на бой": f"⚔️🔥 {s_name} пафосно бросил(а) перчатку в лицо {t_name} и вызвал(а) на поединок!",
-
-        "запечатать": f"📜💣 {s_name} наклеил(а) взрывную печать на спину {t_name} и тихо отбежал(а) в сторону!",
-
-        "облить водой": f"💦🌊 {s_name} использовал(а) стиль воды и окатил(а) {t_name} ледяным душем из ведра!",
-
-        "спрятать в шкаф": f"🚪🧹 {s_name} затолкал(а) {t_name} в шкаф и подпёр(ла) дверь шваброй!",
-
-    }
+    result_text = f"{emoji} {template.format(s=sender_link, t=target_link)}"
 
  
 
-    if cmd in rp_actions:
+    if speech:
 
-        await message.answer(rp_actions[cmd], parse_mode="HTML")
+        safe_speech = speech.replace("<", "").replace(">", "")
+
+        result_text += f"\n💬 <i>Со словами: «{safe_speech}»</i>"
+
+ 
+
+    await message.answer(result_text, parse_mode="HTML", disable_web_page_preview=True)
+
+    return True
 
 
 
