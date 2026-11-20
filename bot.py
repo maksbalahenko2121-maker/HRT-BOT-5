@@ -3513,13 +3513,15 @@ async def try_execute_rp_technique(message: types.Message) -> bool:
 
  
 
-    await message.answer(result_text, parse_mode="HTML", disable_web_page_preview=True)
+      if target_user.id == bot.id:
 
-    return True
+            await message.reply("🛡️ Хмф! Руки прочь от бота!")
+
+            return True
 
         target_link = make_user_link(target_user)
 
-    elif rest_text:
+    elif rest_text::
 
         mention_user = None
 
