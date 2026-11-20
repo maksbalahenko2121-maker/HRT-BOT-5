@@ -50,23 +50,27 @@ PERSONAL_DOSSIER_QUOTES = [
 
 def setup_chat_extra(dp: Dispatcher, bot: Bot, cur, db, admin_id: int, levels: dict, get_user_fn):
 
-    for col_sql in [
+    with sqlite3.connect("game_v2.db") as conn:
 
-        "ALTER TABLE chat_members ADD COLUMN quiz_wins INTEGER DEFAULT 0",
+        c = conn.cursor()
 
-        "ALTER TABLE chat_members ADD COLUMN first_seen_ts INTEGER DEFAULT 0",
+        for col_sql in [
 
-    ]:
+            "ALTER TABLE chat_members ADD COLUMN quiz_wins INTEGER DEFAULT 0",
 
-        try:
+            "ALTER TABLE chat_members ADD COLUMN first_seen_ts INTEGER DEFAULT 0",
 
-            cur.execute(col_sql)
+        ]:
 
-        except sqlite3.OperationalError:
+            try:
 
-            pass
+                c.execute(col_sql)
 
-    db.commit()
+            except sqlite3.OperationalError:
+
+                pass
+
+        conn.commit()
 
  
 
@@ -124,63 +128,67 @@ def setup_chat_extra(dp: Dispatcher, bot: Bot, cur, db, admin_id: int, levels: d
 
  
 
-        cur.execute(
+        with sqlite3.connect("game_v2.db") as conn:
 
-            "SELECT msg_total, msg_today, quiz_wins, first_seen_ts FROM chat_members WHERE chat_id = ? AND user_id = ?",
+            c = conn.cursor()
 
-            (cid, uid)
+            c.execute(
 
-        )
+                "SELECT msg_total, msg_today, quiz_wins, first_seen_ts FROM chat_members WHERE chat_id = ? AND user_id = ?",
 
-        cm_row = cur.fetchone()
+                (cid, uid)
 
-        if cm_row:
+            )
 
-            msg_total, msg_today, quiz_wins, first_ts = cm_row
+            cm_row = c.fetchone()
 
-        else:
+            if cm_row:
 
-            msg_total, msg_today, quiz_wins, first_ts = 0, 0, 0, now
+                msg_total, msg_today, quiz_wins, first_ts = cm_row
 
- 
+            else:
 
-        if not first_ts or first_ts <= 0:
-
-            cur.execute("UPDATE chat_members SET first_seen_ts = ? WHERE chat_id = ? AND user_id = ?", (now, cid, uid))
-
-            db.commit()
-
-            first_ts = now
+                msg_total, msg_today, quiz_wins, first_ts = 0, 0, 0, now
 
  
 
-        cur.execute("SELECT COUNT(*) + 1 FROM chat_members WHERE chat_id = ? AND msg_total > ?", (cid, msg_total))
+            if not first_ts or first_ts <= 0:
 
-        (chat_rank,) = cur.fetchone()
+                c.execute("UPDATE chat_members SET first_seen_ts = ? WHERE chat_id = ? AND user_id = ?", (now, cid, uid))
 
- 
+                conn.commit()
 
-        g_user = get_user_fn(uid, target.username)
-
-        _, _, g_lvl, g_energy, _, _, _ = g_user
-
-        lvl_data = levels.get(g_lvl)
-
-        if lvl_data:
-
-            hero_short = lvl_data.get("name").split(" (").pop(0)
-
-            hero_line = f"{hero_short} (Ур. {g_lvl} — <code>{g_energy} / {lvl_data.get('need')}⚡</code>)"
-
-        else:
-
-            hero_line = f"Бог Аниме (Ур. {g_lvl})"
+                first_ts = now
 
  
 
-        cur.execute("SELECT COUNT(*) + 1 FROM users WHERE level > ? OR (level = ? AND energy > ?)", (g_lvl, g_lvl, g_energy))
+            c.execute("SELECT COUNT(*) + 1 FROM chat_members WHERE chat_id = ? AND msg_total > ?", (cid, msg_total))
 
-        (global_rank,) = cur.fetchone()
+            (chat_rank,) = c.fetchone()
+
+ 
+
+            g_user = get_user_fn(uid, target.username)
+
+            _, _, g_lvl, g_energy, _, _, _ = g_user
+
+            lvl_data = levels.get(g_lvl)
+
+            if lvl_data:
+
+                hero_short = lvl_data.get("name").split(" (").pop(0)
+
+                hero_line = f"{hero_short} (Ур. {g_lvl} — <code>{g_energy} / {lvl_data.get('need')}⚡</code>)"
+
+            else:
+
+                hero_line = f"Бог Аниме (Ур. {g_lvl})"
+
+ 
+
+            c.execute("SELECT COUNT(*) + 1 FROM users WHERE level > ? OR (level = ? AND energy > ?)", (g_lvl, g_lvl, g_energy))
+
+            (global_rank,) = c.fetchone()
 
  
 
