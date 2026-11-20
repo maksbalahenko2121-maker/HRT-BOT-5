@@ -580,7 +580,7 @@ def setup_chat_extra(dp: Dispatcher, bot: Bot, cur, db, admin_id: int, levels: d
 
     async def chat_extra_middleware(handler, event: types.Message, data: dict):
 
-           if event.chat and event.chat.type == "private" and event.text:
+        if event.chat and event.chat.type == "private" and event.text:
 
             btn_text = event.text.strip()
 
@@ -605,6 +605,8 @@ def setup_chat_extra(dp: Dispatcher, bot: Bot, cur, db, admin_id: int, levels: d
             elif btn_text == "🎟 Ввести промокод":
 
                 event.text = "/promo"
+
+ 
 
         if event.chat and event.chat.type in ("group", "supergroup") and event.text:
 
