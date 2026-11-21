@@ -2309,7 +2309,7 @@ def setup_chat_extra(dp: Dispatcher, bot: Bot, cur, db, admin_id: int, levels: d
 
 
 
-             if lower_text in ("стата", "топ", "топ чата", "стата день", "топ дня"):
+            if lower_text in ("стата", "топ", "топ чата", "стата день", "топ дня"):
 
                 t_text, t_kb = build_chat_top_card(event.chat.id, event.from_user.id, mode="today")
 
