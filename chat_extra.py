@@ -1820,8 +1820,8 @@ def setup_chat_extra(dp: Dispatcher, bot: Bot, cur, db, admin_id: int, levels: d
         return True
 
 
-    def build_chat_top_card(cid: int, caller_id: int, mode: str = "today"):
-
+    ,def build_chat_top_card(cid: int, caller_id: int, mode: str = "today", clickable: bool = True):
+     
         with sqlite3.connect("game_v2.db") as conn:
 
             c = conn.cursor()
@@ -1932,7 +1932,7 @@ def setup_chat_extra(dp: Dispatcher, bot: Bot, cur, db, admin_id: int, levels: d
 
                 safe_n = str(uname or "Шиноби").lstrip("@").replace("<", "").replace(">", "")
 
-                u_link = f"<b>{safe_n.lstrip('@')}</b>"
+                u_link = f'<a href="tg://user?id={uid}"><b>{safe_n.lstrip("@")}</b></a>' if clickable else f'<b>{safe_n.lstrip("@")}</b>'
 
                 mark = medals.get(idx, f"<b>{idx}.</b>")
 
