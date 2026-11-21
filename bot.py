@@ -4347,7 +4347,7 @@ setup_chat_extra(
 
     dp, bot, cur, db, ADMIN_ID, LEVELS, get_user, active_emoji_quiz,
 
-    cmd_start, cmd_road, cmd_top, cmd_promo
+    cmd_start, None, None, None
 
 )
 
