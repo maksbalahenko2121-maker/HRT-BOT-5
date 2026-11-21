@@ -576,7 +576,7 @@ def setup_chat_extra(dp: Dispatcher, bot: Bot, cur, db, admin_id: int, levels: d
 
  
 
-       @dp.message.outer_middleware()
+     @dp.message.outer_middleware()
 
     async def chat_extra_middleware(handler, event: types.Message, data: dict):
 
