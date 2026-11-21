@@ -100,8 +100,8 @@ def ensure_extra_tables(c):
 
  
 
-def setup_chat_extra(dp: Dispatcher, bot: Bot, cur, db, admin_id: int, levels: dict, get_user_fn, active_quiz_dict: dict = None):
-
+def setup_chat_extra(dp: Dispatcher, bot: Bot, cur, db, admin_id: int, levels: dict, get_user_fn, active_quiz_dict: dict = None, start_fn=None, road_fn=None, top_fn=None, promo_fn=None):
+ 
     if active_quiz_dict is None:
 
         active_quiz_dict = {}
@@ -576,7 +576,7 @@ def setup_chat_extra(dp: Dispatcher, bot: Bot, cur, db, admin_id: int, levels: d
 
  
 
-    @dp.message.outer_middleware()
+       @dp.message.outer_middleware()
 
     async def chat_extra_middleware(handler, event: types.Message, data: dict):
 
