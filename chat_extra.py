@@ -1018,7 +1018,7 @@ def setup_chat_extra(dp: Dispatcher, bot: Bot, cur, db, admin_id: int, levels: d
 
             time_left = "навсегда" if until_ts == 0 else f"до <code>{datetime.fromtimestamp(until_ts).strftime('%d.%m в %H:%M')}</code>"
 
-            lines.append(f"{idx}. <b>{safe_n.lstrip('@')}</b>
+            lines.append(f"{idx}. <b>{safe_n.lstrip('@')}</b> — {time_left}")
  
 
         await message.reply("\n".join(lines), parse_mode="HTML", disable_web_page_preview=True)
