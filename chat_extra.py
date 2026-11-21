@@ -884,7 +884,7 @@ def setup_chat_extra(dp: Dispatcher, bot: Bot, cur, db, admin_id: int, levels: d
 
  
 
-        t_link = f'<a href="tg://user?id={target_id}"><b>{target_name}</b></a>'
+        u_link = f'<b>{safe_n}</b>"
 
         now = int(time.time())
 
