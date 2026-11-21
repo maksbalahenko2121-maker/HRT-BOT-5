@@ -834,21 +834,22 @@ def bottom_menu_keyboard():
 
     return ReplyKeyboardMarkup(
 
-    keyboard=[
+        keyboard=[
 
-        [KeyboardButton(text="🦸 Мой герой"), KeyboardButton(text="🛤 Дорога славы")],
+            [KeyboardButton(text="🦸 Мой герой"), KeyboardButton(text="🛤 Дорога славы")],
 
-        [KeyboardButton(text="🏆 Топ 10"), KeyboardButton(text="🎟 Ввести промокод")],
+            [KeyboardButton(text="🏆 Топ 10"), KeyboardButton(text="🎟 Ввести промокод")],
 
-        [KeyboardButton(text="📖 Информация и правила")],
+            [KeyboardButton(text="📖 Информация и правила")],
 
-    ],
+        ],
 
-    resize_keyboard=True,
+        resize_keyboard=True,
 
-    is_persistent=True
+        is_persistent=False
 
     )
+
  
 
  
@@ -867,11 +868,13 @@ def main_keyboard(user_id, level, energy, need):
 
             buttons.append([InlineKeyboardButton(text="⚡ Впитать энергию", callback_data=f"farm_{user_id}")])
 
-            buttons.append([InlineKeyboardButton(text="🔮 Лавка читера", callback_data="boost_shop")]),
+            buttons.append([
 
-            buttons.append([InlineKeyboardButton(text="🏆 Топ-10", callback_data=f"top_{user_id}")]) 
+                InlineKeyboardButton(text="🔮 Лавка читера", callback_data=f"shop_{user_id}"),
 
-            buttons.append([InlineKeyboardButton(text="👥 Пригласить друга (+50⚡)", callback_data=f"ref_{user_id}")])
+                InlineKeyboardButton(text="👥 Пригласить друга", callback_data=f"ref_{user_id}")
+
+            ])
 
     return InlineKeyboardMarkup(inline_keyboard=buttons)
 
@@ -949,21 +952,15 @@ def get_card_text(user):
 
     return (
 
-        f"╭── 🎴 <b>УРОВЕНЬ {level} / {max_lvl}</b> ──╮\n"
+        f"🎴 <b>УРОВЕНЬ {level} / {max_lvl}</b> ∙ @{uname}\n"
 
-        f"👤 Сенсей: <b>@{uname}</b>\n"
+        f"🦸 <b>Герой:</b> {lvl_data.get('name')}\n"
 
-        f"🦸 Герой: <b>{lvl_data.get('name')}</b>\n"
+        f"🎁 <b>Награда:</b> {lvl_data.get('reward')}\n"
 
-        f"🎁 Награда: <b>{lvl_data.get('reward')}</b>\n"
+        f"⚡ <b>Чакра:</b> <code>{p_bar}</code> ({energy}/{need})\n\n"
 
-        f"╰───────────────────╯\n\n"
-
-        f"⚡ <b>Шкала чакры:</b>\n"
-
-        f"<code>{p_bar}</code> (<b>{energy} / {need}</b>)\n\n"
-
-        f"🔮 <b>Амулет удачи:</b> {amulet_status}\n"
+        f"🔮 <b>Амулет:</b> {amulet_status}\n"
 
         f"{timer_text}"
 
@@ -4347,7 +4344,7 @@ setup_chat_extra(
 
     dp, bot, cur, db, ADMIN_ID, LEVELS, get_user, active_emoji_quiz,
 
-    cmd_start, None, None, None
+    cmd_card, cmd_levels_text, cmd_top_text, cmd_use_promo
 
 )
 
