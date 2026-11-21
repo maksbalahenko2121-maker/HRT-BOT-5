@@ -1932,9 +1932,9 @@ def setup_chat_extra(dp: Dispatcher, bot: Bot, cur, db, admin_id: int, levels: d
 
                 safe_n = str(uname or "Шиноби").lstrip("@").replace("<", "").replace(">", "")
 
-                u_link = f'<a href="tg://user?id={uid}"><b>{safe_n}</b></a>'
+                u_link = f"<b>{safe_n.lstrip('@')}</b>"
 
-                mark = medals.get(idx, <b>{safe_n.lstrip('@')}</b>)
+                mark = medals.get(idx, f"<b>{idx}.</b>")
 
                 if mode == "today":
 
