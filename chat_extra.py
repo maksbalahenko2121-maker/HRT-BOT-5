@@ -1047,10 +1047,11 @@ def setup_chat_extra(dp: Dispatcher, bot: Bot, cur, db, admin_id: int, levels: d
 
                 if rnk in admins_by_rank:
 
-                    safe_n = str(uname).replace("<", "").replace(">", "")
+                    safe_n = str(uname).lstrip("@").replace("<", "").replace(">", "")
 
-                    lines.append(f"{idx}. <b>{safe_n.lstrip('@')}</b> — {time_left}")
-                    
+                    admins_by_rank[rnk].append(f"∙ <b>{safe_n}</b>")
+
+                    seen_ids.add(uid)
 
  
 
@@ -1066,15 +1067,16 @@ def setup_chat_extra(dp: Dispatcher, bot: Bot, cur, db, admin_id: int, levels: d
 
                     continue
 
-                safe_n = (u.full_name or u.username or "Админ").replace("<", "").replace(">", "")
+                safe_n = (u.full_name or u.username or "Админ").lstrip("@").replace("<", "").replace(">", "")
 
                 if m.status == "creator" or u.id == admin_id:
 
-                    admins_by_rank[5].append(f"• <b>{safe_n.lstrip('@')}</b>
+                    admins_by_rank.append(f"∙ <b>{safe_n}</b>")
 
                 else:
 
-                    admins_by_rank[3].append(f"• <b>{safe_n.lstrip('@')}</b>
+                    admins_by_rank.append(f"∙ <b>{safe_n}</b>")
+
                 seen_ids.add(u.id)
 
         except Exception:
@@ -1109,8 +1111,8 @@ def setup_chat_extra(dp: Dispatcher, bot: Bot, cur, db, admin_id: int, levels: d
 
  
 
-        await message.reply("\n".join(lines), parse_mode="HTML", disable_web_page_preview=True)
-
+        await message.answer("\n".join(lines), parse_mode="HTML", disable_web_page_preview=True, disable_notification=True)
+     
     def build_stat_users_text() -> str:
 
         now = int(time.time())
