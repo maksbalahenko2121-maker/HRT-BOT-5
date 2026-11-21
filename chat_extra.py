@@ -10,17 +10,17 @@ from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
 
  
 
-INFO_URL = "https://telegra.ph"
+INFO_URL = "https://telegra.ph/Oznakomlenie-11-20"
 
  
 
 RANK_NAMES = {
 
-    1: "🔰 Младший модер",
+    1: "🔰 Стажёр",
 
-    2: "🛡️ Старший модер",
+    2: "🛡️ Модер",
 
-    3: "⚔️ Администратор",
+    3: "⚔️ Старший модератор",
 
     4: "👑 Заместитель",
 
@@ -76,6 +76,8 @@ INFO_CMDS = {"информация", "инфо", "гайд", "помощь", "/h
 
 WHO_ADMIN_CMDS = {"кто админ", "кто тут админ", "админы", "состав", "администрация"}
 
+RANKS_INFO_CMDS = {"ранги", "права", "права рангов", "полномочия"}
+
  
 
  
@@ -116,6 +118,46 @@ def ensure_extra_tables(c):
 
     """)
 
+    c.execute("""
+
+    CREATE TABLE IF NOT EXISTS chat_warns (
+
+        chat_id INTEGER,
+
+        user_id INTEGER,
+
+        user_name TEXT,
+
+        warns_count INTEGER DEFAULT 0,
+
+        last_reason TEXT,
+
+        PRIMARY KEY (chat_id, user_id)
+
+    )
+
+    """)
+
+    c.execute("""
+
+    CREATE TABLE IF NOT EXISTS chat_punishments (
+
+        chat_id INTEGER,
+
+        user_id INTEGER,
+
+        user_name TEXT,
+
+        p_type TEXT,
+
+        until_ts INTEGER,
+
+        PRIMARY KEY (chat_id, user_id, p_type)
+
+    )
+
+    """)
+
     for col_sql in [
 
         "ALTER TABLE chat_members ADD COLUMN quiz_wins INTEGER DEFAULT 0",
@@ -131,6 +173,68 @@ def ensure_extra_tables(c):
         except sqlite3.OperationalError:
 
             pass
+
+ 
+
+ 
+
+def parse_mod_duration(args_str: str) -> tuple[int, str]:
+
+    tokens = args_str.strip().lower().split()
+
+    if not tokens:
+
+        return 0, "навсегда"
+
+    num_str = ""
+
+    unit_str = ""
+
+    for item in tokens:
+
+        digits = "".join(ch for ch in item if ch.isdigit())
+
+        letters = "".join(ch for ch in item if ch.isalpha())
+
+        if digits and not num_str:
+
+            num_str = digits
+
+        if letters and not unit_str:
+
+            unit_str = letters
+
+    if not num_str:
+
+        return 0, "навсегда"
+
+    val = int(num_str)
+
+    if val <= 0:
+
+        return 0, "навсегда"
+
+    if unit_str.startswith("с") or unit_str.startswith("s"):
+
+        return max(val, 35), f"{val} сек."
+
+    if unit_str.startswith("ч") or unit_str.startswith("h"):
+
+        return val * 3600, f"{val} ч."
+
+    if unit_str.startswith("д") or unit_str.startswith("d"):
+
+        return val * 86400, f"{val} дн."
+
+    if unit_str.startswith("н") or unit_str.startswith("w"):
+
+        return val * 604800, f"{val} нед."
+
+    if unit_str.startswith("мес") or unit_str.startswith("mo"):
+
+        return val * 2592000, f"{val} мес."
+
+    return val * 60, f"{val} мин."
 
  
 
@@ -178,9 +282,9 @@ def setup_chat_extra(dp: Dispatcher, bot: Bot, cur, db, admin_id: int, levels: d
 
             row = c.fetchone()
 
-            if row and row[0] > 0:
+            if row and row > 0:
 
-                return int(row[0])
+                return int(row)
 
  
 
@@ -192,7 +296,7 @@ def setup_chat_extra(dp: Dispatcher, bot: Bot, cur, db, admin_id: int, levels: d
 
  
 
-    async def is_boss_user(chat_id: int, user_id: int, min_rank: int = 2) -> bool:
+    async def is_boss_user(chat_id: int, user_id: int, min_rank: int = 3) -> bool:
 
         rank = await get_member_rank(chat_id, user_id)
 
@@ -238,7 +342,7 @@ def setup_chat_extra(dp: Dispatcher, bot: Bot, cur, db, admin_id: int, levels: d
 
  
 
-        target_token = tokens[0].replace("<", "").replace(">", "")
+        target_token = tokens.replace("<", "").replace(">", "")
 
         rest_str = " ".join(tokens[1:]) if len(tokens) > 1 else ""
 
@@ -264,7 +368,7 @@ def setup_chat_extra(dp: Dispatcher, bot: Bot, cur, db, admin_id: int, levels: d
 
             if row:
 
-                return int(row[0]), str(row[1]).replace("<", "").replace(">", ""), rest_str
+                return int(row), str(row).replace("<", "").replace(">", ""), rest_str
 
  
 
@@ -290,6 +394,44 @@ def setup_chat_extra(dp: Dispatcher, bot: Bot, cur, db, admin_id: int, levels: d
 
  
 
+    async def handle_ranks_info(message: types.Message):
+
+        info_msg = (
+
+            "🎖 <b>ИЕРАРХИЯ И ПРАВА РАНГОВ В ЧАТЕ</b>\n"
+
+            "━━━━━━━━━━━━━━\n"
+
+            "<b>1 ранг — 🔰 Стажёр:</b>\n"
+
+            "• Может выдавать <b>только варны</b> (<code>варн [причина]</code>)\n\n"
+
+            "<b>2 ранг — 🛡️ Модер:</b>\n"
+
+            "• Выдача варнов и мутов (<code>варн</code>, <code>мут [время]</code>)\n\n"
+
+            "<b>3 ранг — ⚔️ Старший модератор:</b>\n"
+
+            "• Выдача и <b>снятие</b> варнов и мутов (<code>варн</code>, <code>снять варн</code>, <code>мут</code>, <code>размут</code>) + правила (<code>+правила</code>)\n\n"
+
+            "<b>4 ранг — 👑 Заместитель:</b>\n"
+
+            "• Всё выше + выдача и снятие банов (<code>бан</code>, <code>разбан</code>) + удаление правил (<code>-правила</code>)\n\n"
+
+            "<b>5 ранг — 🔱 Создатель:</b>\n"
+
+            "• Полный доступ ко всему + <b>назначение и снятие любых рангов (1–4)</b>\n"
+
+            "━━━━━━━━━━━━━━\n"
+
+            "<i>Посмотреть состав: <code>кто админ</code></i>"
+
+        )
+
+        await message.reply(info_msg, parse_mode="HTML")
+
+ 
+
     async def handle_rank_change(message: types.Message, mode: str, arg_text: str):
 
         cid = message.chat.id
@@ -300,9 +442,9 @@ def setup_chat_extra(dp: Dispatcher, bot: Bot, cur, db, admin_id: int, levels: d
 
  
 
-        if sender_rank < 3:
+        if sender_rank < 5:
 
-            return await message.reply("⛔ <b>Назначать и снимать модераторов могут только Админы (3+ ранг) и Создатель!</b>", parse_mode="HTML")
+            return await message.reply("⛔ <b>Выдавать, повышать и снимать ранги может только Создатель беседы (5 ранг)!</b>", parse_mode="HTML")
 
  
 
@@ -312,13 +454,13 @@ def setup_chat_extra(dp: Dispatcher, bot: Bot, cur, db, admin_id: int, levels: d
 
             return await message.reply(
 
-                "👑 <b>Как управлять рангами:</b>\n"
+                "👑 <b>Управление рангами (только Создатель):</b>\n"
 
                 "Ответь на сообщение игрока или укажи <code>@ник</code>:\n"
 
-                "∙ <code>повысить</code> (или <code>повысить 3</code>)\n"
+                "• <code>повысить</code> (или <code>повысить 1-4</code>)\n"
 
-                "∙ <code>понизить</code> / <code>снять админа</code>",
+                "• <code>понизить</code> / <code>снять админа</code>",
 
                 parse_mode="HTML"
 
@@ -332,15 +474,13 @@ def setup_chat_extra(dp: Dispatcher, bot: Bot, cur, db, admin_id: int, levels: d
 
         if target_id == sender_id:
 
-            return await message.reply("😒 Нельзя менять ранг самому себе, дурак!")
-
- 
+            return await message.reply("😒 Ты и так Создатель этой беседы, дурак!")
 
         target_rank = await get_member_rank(cid, target_id)
 
-        if target_rank >= sender_rank:
+        if target_rank >= 5:
 
-            return await message.reply("🛡 <b>Нельзя изменить ранг человеку, который равен тебе или старше по званию!</b>", parse_mode="HTML")
+            return await message.reply("🛡 Нельзя изменить ранг Создателю!")
 
  
 
@@ -357,10 +497,6 @@ def setup_chat_extra(dp: Dispatcher, bot: Bot, cur, db, admin_id: int, levels: d
             else:
 
                 new_rank = min(4, target_rank + 1)
-
-            if new_rank >= sender_rank:
-
-                return await message.reply(f"⛔ Ты можешь назначить максимум <b>{sender_rank - 1}-й ранг</b>!", parse_mode="HTML")
 
         else:
 
@@ -414,7 +550,7 @@ def setup_chat_extra(dp: Dispatcher, bot: Bot, cur, db, admin_id: int, levels: d
 
             await message.reply(
 
-                f"{arrow} <b>Ранг обновлён!</b>\n"
+                f"{arrow} <b>Ранг обновлён Создателем!</b>\n"
 
                 f"👤 Игрок: {t_link}\n"
 
@@ -423,6 +559,462 @@ def setup_chat_extra(dp: Dispatcher, bot: Bot, cur, db, admin_id: int, levels: d
                 parse_mode="HTML"
 
             )
+
+    async def handle_warn_action(message: types.Message, mode: str, arg_text: str):
+
+        cid = message.chat.id
+
+        sender_id = message.from_user.id
+
+        sender_rank = await get_member_rank(cid, sender_id)
+
+ 
+
+        if mode == "unwarn" and sender_rank < 3:
+
+            return await message.reply("⛔ <b>Снимать варны могут модераторы от 3 ранга (⚔️ Старший модератор) и выше!</b>", parse_mode="HTML")
+
+        if mode == "warn" and sender_rank < 1:
+
+            return await message.reply("⛔ <b>Выдавать варны могут модераторы от 1 ранга (🔰 Стажёр) и выше!</b>", parse_mode="HTML")
+
+ 
+
+        target_id, target_name, rest = await resolve_target_user(message, arg_text)
+
+        if not target_id:
+
+            return await message.reply(
+
+                "⚠️ <b>Система предупреждений (варнов):</b>\n"
+
+                "Ответь на сообщение нарушителя или укажи <code>@ник</code>:\n"
+
+                "• <code>варн [причина]</code> (от 1 ранга, 3 варна = мут на 24ч)\n"
+
+                "• <code>снять варн</code> (от 3 ранга) / <code>варны @ник</code>",
+
+                parse_mode="HTML"
+
+            )
+
+ 
+
+        if target_id == bot.id:
+
+            return await message.reply("😤 Б-бака! Не смей выписывать варн великому боту!")
+
+        if target_id == sender_id:
+
+            return await message.reply("😒 Нельзя выдать или снять варн самому себе!")
+
+ 
+
+        target_rank = await get_member_rank(cid, target_id)
+
+        if target_rank >= sender_rank:
+
+            return await message.reply("🛡 <b>Нельзя применить это действие к тому, кто равен тебе или старше по рангу!</b>", parse_mode="HTML")
+
+ 
+
+        t_link = f'<a href="tg://user?id={target_id}"><b>{target_name}</b></a>'
+
+ 
+
+        with sqlite3.connect("game_v2.db") as conn:
+
+            conn.execute("PRAGMA busy_timeout=5000;")
+
+            c = conn.cursor()
+
+            ensure_extra_tables(c)
+
+            c.execute("SELECT warns_count FROM chat_warns WHERE chat_id = ? AND user_id = ?", (cid, target_id))
+
+            row = c.fetchone()
+
+            cur_warns = int(row[0]) if row else 0
+
+ 
+
+            if mode == "unwarn":
+
+                if cur_warns <= 0:
+
+                    return await message.reply(f"🟢 У игрока {t_link} и так <b>0 / 3 варнов</b>!", parse_mode="HTML")
+
+                new_w = cur_warns - 1
+
+                if new_w == 0:
+
+                    c.execute("DELETE FROM chat_warns WHERE chat_id = ? AND user_id = ?", (cid, target_id))
+
+                else:
+
+                    c.execute("UPDATE chat_warns SET warns_count = ? WHERE chat_id = ? AND user_id = ?", (new_w, cid, target_id))
+
+                conn.commit()
+
+                return await message.reply(
+
+                    f"✅ С игрока {t_link} снято 1 предупреждение!\n"
+
+                    f"⚠️ Активные варны: <b>{new_w} / 3</b>",
+
+                    parse_mode="HTML"
+
+                )
+
+ 
+
+            reason = rest.replace("<", "").replace(">", "").strip() or "Нарушение правил чата"
+
+            new_w = cur_warns + 1
+
+ 
+
+            if new_w >= 3:
+
+                c.execute("DELETE FROM chat_warns WHERE chat_id = ? AND user_id = ?", (cid, target_id))
+
+                until_ts = int(time.time()) + 86400
+
+                try:
+
+                    perms = types.ChatPermissions(can_send_messages=False)
+
+                    await bot.restrict_chat_member(cid, target_id, permissions=perms, until_date=until_ts)
+
+                    c.execute(
+
+                        "INSERT OR REPLACE INTO chat_punishments (chat_id, user_id, user_name, p_type, until_ts) VALUES (?, ?, ?, 'mute', ?)",
+
+                        (cid, target_id, target_name, until_ts)
+
+                    )
+
+                    punish_note = "🔇 Нарушитель автоматически отправлен в <b>мут на 24 часа</b>, счётчик варнов обнулён!"
+
+                except Exception as e:
+
+                    punish_note = f"⚠️ Не удалось выдать авто-мут (проверь права админа у бота): <code>{e}</code>"
+
+                conn.commit()
+
+ 
+
+                return await message.reply(
+
+                    f"🚨 <b>ПОСЛЕДНЕЕ ПРЕДУПРЕЖДЕНИЕ (3 / 3)!</b>\n"
+
+                    f"👤 Нарушитель: {t_link}\n"
+
+                    f"📝 Причина: <i>{reason}</i>\n\n"
+
+                    f"{punish_note}",
+
+                    parse_mode="HTML"
+
+                )
+
+ 
+
+            c.execute(
+
+                "INSERT OR REPLACE INTO chat_warns (chat_id, user_id, user_name, warns_count, last_reason) VALUES (?, ?, ?, ?, ?)",
+
+                (cid, target_id, target_name, new_w, reason)
+
+            )
+
+            conn.commit()
+
+ 
+
+        await message.reply(
+
+            f"⚠️ <b>ВЫДАНО ПРЕДУПРЕЖДЕНИЕ ({new_w} / 3)!</b>\n"
+
+            f"👤 Нарушитель: {t_link}\n"
+
+            f"📝 Причина: <i>{reason}</i>\n"
+
+            f"<i>При 3 из 3 варнов последует авто-мут на 24ч!</i>",
+
+            parse_mode="HTML"
+
+        )
+
+    async def handle_warns_query(message: types.Message, arg_text: str):
+
+        cid = message.chat.id
+
+        target_id, target_name, _ = await resolve_target_user(message, arg_text)
+
+ 
+
+        with sqlite3.connect("game_v2.db") as conn:
+
+            c = conn.cursor()
+
+            ensure_extra_tables(c)
+
+ 
+
+            if target_id:
+
+                c.execute("SELECT warns_count, last_reason FROM chat_warns WHERE chat_id = ? AND user_id = ?", (cid, target_id))
+
+                row = c.fetchone()
+
+                t_link = f'<a href="tg://user?id={target_id}"><b>{target_name}</b></a>'
+
+                if not row or row[0] <= 0:
+
+                    return await message.reply(f"🟢 У игрока {t_link} сейчас <b>0 / 3 варнов</b>!", parse_mode="HTML")
+
+                w_cnt, rsn = row
+
+                safe_r = str(rsn or "—").replace("<", "").replace(">", "")
+
+                return await message.reply(
+
+                    f"⚠️ <b>ПРЕДУПРЕЖДЕНИЯ ИГРОКА</b>\n"
+
+                    f"👤 Игрок: {t_link}\n"
+
+                    f"📊 Варны: <b>{w_cnt} / 3</b>\n"
+
+                    f"📝 Последняя причина: <i>{safe_r}</i>",
+
+                    parse_mode="HTML"
+
+                )
+
+ 
+
+            c.execute("SELECT user_id, user_name, warns_count, last_reason FROM chat_warns WHERE chat_id = ? AND warns_count > 0 ORDER BY warns_count DESC", (cid,))
+
+            rows = c.fetchall()
+
+ 
+
+        if not rows:
+
+            return await message.reply("🟢 <b>В этом чате сейчас ни у кого нет предупреждений (варнов)!</b>", parse_mode="HTML")
+
+ 
+
+        lines = ["⚠️ <b>СПИСОК НАРУШИТЕЛЕЙ С ВАРНАМИ</b>", "━━━━━━━━━━━━━━"]
+
+        for idx, (uid, uname, w_cnt, rsn) in enumerate(rows, 1):
+
+            safe_n = str(uname).replace("<", "").replace(">", "")
+
+            safe_r = str(rsn or "—").replace("<", "").replace(">", "")
+
+            lines.append(f"{idx}. <a href=\"tg://user?id={uid}\"><b>{safe_n}</b></a> — <b>{w_cnt}/3</b> <i>({safe_r})</i>")
+
+ 
+
+        await message.reply("\n".join(lines), parse_mode="HTML", disable_web_page_preview=True)
+
+ 
+
+    async def handle_ranked_moderation(message: types.Message, cmd: str, arg_text: str):
+
+        cid = message.chat.id
+
+        sender_id = message.from_user.id
+
+        sender_rank = await get_member_rank(cid, sender_id)
+
+ 
+
+        req_ranks = {
+
+            "мут": (2, "🛡️ Модер (2 ранг)"),
+
+            "размут": (3, "⚔️ Старший модератор (3 ранг)"),
+
+            "бан": (4, "👑 Заместитель (4 ранг)"),
+
+            "разбан": (4, "👑 Заместитель (4 ранг)"),
+
+        }
+
+        min_r, r_label = req_ranks[cmd]
+
+        if sender_rank < min_r:
+
+            return await message.reply(f"⛔ <b>Команда <code>{cmd}</code> доступна только с ранга: {r_label} и выше!</b>", parse_mode="HTML")
+
+ 
+
+        target_id, target_name, rest = await resolve_target_user(message, arg_text)
+
+        if not target_id:
+
+            return await message.reply(f"📌 Ответь на сообщение игрока или укажи <code>@ник</code> после команды <code>{cmd}</code>!", parse_mode="HTML")
+
+ 
+
+        if target_id == bot.id:
+
+            return await message.reply("😤 Б-бака! Я сам себя наказывать не буду!")
+
+        if target_id == sender_id:
+
+            return await message.reply("😒 Нельзя применить это действие к самому себе!")
+
+ 
+
+        target_rank = await get_member_rank(cid, target_id)
+
+        if target_rank >= sender_rank:
+
+            return await message.reply("🛡 <b>Нельзя применить это действие к тому, кто равен тебе или старше по рангу!</b>", parse_mode="HTML")
+
+ 
+
+        t_link = f'<a href="tg://user?id={target_id}"><b>{target_name}</b></a>'
+
+        now = int(time.time())
+
+ 
+
+        try:
+
+            with sqlite3.connect("game_v2.db") as conn:
+
+                conn.execute("PRAGMA busy_timeout=5000;")
+
+                c = conn.cursor()
+
+                ensure_extra_tables(c)
+
+ 
+
+                if cmd == "мут":
+
+                    seconds, label = parse_mod_duration(rest)
+
+                    if seconds == 0:
+
+                        seconds, label = 3600, "60 мин."
+
+                    until = now + seconds
+
+                    perms = types.ChatPermissions(can_send_messages=False)
+
+                    await bot.restrict_chat_member(cid, target_id, permissions=perms, until_date=until)
+
+                    c.execute("INSERT OR REPLACE INTO chat_punishments (chat_id, user_id, user_name, p_type, until_ts) VALUES (?, ?, ?, 'mute', ?)", (cid, target_id, target_name, until))
+
+                    conn.commit()
+
+                    await message.reply(f"🔇 <b>Техника теневого молчания!</b> {t_link} запечатал(а) рот <b>на {label}</b>!", parse_mode="HTML")
+
+ 
+
+                elif cmd == "размут":
+
+                    perms = types.ChatPermissions(can_send_messages=True, can_send_audios=True, can_send_documents=True, can_send_photos=True, can_send_videos=True, can_send_video_notes=True, can_send_voice_notes=True, can_send_polls=True, can_send_other_messages=True, can_add_web_page_previews=True)
+
+                    await bot.restrict_chat_member(cid, target_id, permissions=perms)
+
+                    c.execute("DELETE FROM chat_punishments WHERE chat_id = ? AND user_id = ? AND p_type = 'mute'", (cid, target_id))
+
+                    conn.commit()
+
+                    await message.reply(f"🔊 <b>Кай! Гендзюцу рассеяно!</b> С {t_link} снят мут, снова можно болтать!", parse_mode="HTML")
+
+ 
+
+                elif cmd == "бан":
+
+                    seconds, label = parse_mod_duration(rest)
+
+                    until = (now + seconds) if seconds > 0 else 0
+
+                    dur_text = f"на {label}" if seconds > 0 else "навсегда"
+
+                    if seconds > 0:
+
+                        await bot.ban_chat_member(cid, target_id, until_date=until)
+
+                    else:
+
+                        await bot.ban_chat_member(cid, target_id)
+
+                    c.execute("INSERT OR REPLACE INTO chat_punishments (chat_id, user_id, user_name, p_type, until_ts) VALUES (?, ?, ?, 'ban', ?)", (cid, target_id, target_name, until))
+
+                    conn.commit()
+
+                    await message.reply(f"🔨 <b>Техника запечатывания Шинигами!</b> {t_link} изгнан(а) из беседы <b>{dur_text}</b>!", parse_mode="HTML")
+
+ 
+
+                elif cmd == "разбан":
+
+                    await bot.unban_chat_member(cid, target_id, only_if_banned=True)
+
+                    c.execute("DELETE FROM chat_punishments WHERE chat_id = ? AND user_id = ? AND p_type = 'ban'", (cid, target_id))
+
+                    conn.commit()
+
+                    await message.reply(f"🕊 <b>Эдо Тенсей!</b> {t_link} разбанен(а) и снова может вернуться в беседу!", parse_mode="HTML")
+
+        except Exception as e:
+
+            await message.reply(f"⚠️ <b>Не удалось выполнить технику!</b>\nПроверь права админа у бота. Причина: <code>{e}</code>", parse_mode="HTML")
+
+    async def handle_punishments_list_extra(message: types.Message, p_type: str):
+
+        cid = message.chat.id
+
+        now = int(time.time())
+
+        with sqlite3.connect("game_v2.db") as conn:
+
+            c = conn.cursor()
+
+            ensure_extra_tables(c)
+
+            c.execute("DELETE FROM chat_punishments WHERE chat_id = ? AND until_ts > 0 AND until_ts <= ?", (cid, now))
+
+            conn.commit()
+
+            c.execute("SELECT user_id, user_name, until_ts FROM chat_punishments WHERE chat_id = ? AND p_type = ?", (cid, p_type))
+
+            rows = c.fetchall()
+
+ 
+
+        if not rows:
+
+            empty_msg = "🟢 <b>В этом чате сейчас никто не сидит в муте!</b>" if p_type == "mute" else "🟢 <b>Список забаненных в этом чате пуст!</b>"
+
+            return await message.reply(empty_msg, parse_mode="HTML")
+
+ 
+
+        header = "🔇 <b>СПИСОК ЗАМУЧЕННЫХ В ЧАТЕ:</b>\n━━━━━━━━━━━━━━\n" if p_type == "mute" else "🔨 <b>СПИСОК ЗАБАНЕННЫХ В ЧАТЕ:</b>\n━━━━━━━━━━━━━━\n"
+
+        lines = [header]
+
+        for idx, (uid, uname, until_ts) in enumerate(rows, 1):
+
+            safe_n = str(uname).replace("<", "").replace(">", "")
+
+            time_left = "навсегда" if until_ts == 0 else f"до <code>{datetime.fromtimestamp(until_ts).strftime('%d.%m в %H:%M')}</code>"
+
+            lines.append(f"{idx}. <a href=\"tg://user?id={uid}\"><b>{safe_n}</b></a> — {time_left}")
+
+ 
+
+        await message.reply("\n".join(lines), parse_mode="HTML", disable_web_page_preview=True)
 
  
 
@@ -450,7 +1042,7 @@ def setup_chat_extra(dp: Dispatcher, bot: Bot, cur, db, admin_id: int, levels: d
 
                     safe_n = str(uname).replace("<", "").replace(">", "")
 
-                    admins_by_rank[rnk].append(f"∙ <a href=\"tg://user?id={uid}\"><b>{safe_n}</b></a>")
+                    admins_by_rank[rnk].append(f"• <a href=\"tg://user?id={uid}\"><b>{safe_n}</b></a>")
 
                     seen_ids.add(uid)
 
@@ -472,11 +1064,11 @@ def setup_chat_extra(dp: Dispatcher, bot: Bot, cur, db, admin_id: int, levels: d
 
                 if m.status == "creator" or u.id == admin_id:
 
-                    admins_by_rank[5].append(f"∙ <a href=\"tg://user?id={u.id}\"><b>{safe_n}</b></a>")
+                    admins_by_rank[5].append(f"• <a href=\"tg://user?id={u.id}\"><b>{safe_n}</b></a>")
 
                 else:
 
-                    admins_by_rank[3].append(f"∙ <a href=\"tg://user?id={u.id}\"><b>{safe_n}</b></a>")
+                    admins_by_rank[3].append(f"• <a href=\"tg://user?id={u.id}\"><b>{safe_n}</b></a>")
 
                 seen_ids.add(u.id)
 
@@ -508,13 +1100,11 @@ def setup_chat_extra(dp: Dispatcher, bot: Bot, cur, db, admin_id: int, levels: d
 
         lines.append("\n━━━━━━━━━━━━━━")
 
-        lines.append("<i>Назначить: <code>повысить @ник [1-4]</code></i>")
+        lines.append("<i>Посмотреть права рангов: <code>ранги</code></i>")
 
  
 
         await message.reply("\n".join(lines), parse_mode="HTML", disable_web_page_preview=True)
-
- 
 
     def build_stat_users_text() -> str:
 
@@ -646,6 +1236,8 @@ def setup_chat_extra(dp: Dispatcher, bot: Bot, cur, db, admin_id: int, levels: d
 
         )
 
+ 
+
     def build_admin_player_card(target_uid: int):
 
         with sqlite3.connect("game_v2.db") as conn:
@@ -755,8 +1347,6 @@ def setup_chat_extra(dp: Dispatcher, bot: Bot, cur, db, admin_id: int, levels: d
         ])
 
         return text, kb
-
- 
 
     @dp.callback_query(F.data == "adm_extra_find")
 
@@ -924,6 +1514,8 @@ def setup_chat_extra(dp: Dispatcher, bot: Bot, cur, db, admin_id: int, levels: d
 
         await call.answer(f"✅ {note}", show_alert=True)
 
+ 
+
     async def handle_set_rules(message: types.Message, raw_text: str):
 
         cid = message.chat.id
@@ -932,9 +1524,9 @@ def setup_chat_extra(dp: Dispatcher, bot: Bot, cur, db, admin_id: int, levels: d
 
  
 
-        if not await is_boss_user(cid, uid, min_rank=2):
+        if not await is_boss_user(cid, uid, min_rank=3):
 
-            return await message.reply("⛔ <b>Устанавливать правила могут модераторы (2+ ранг) и админы чата!</b>", parse_mode="HTML")
+            return await message.reply("⛔ <b>Устанавливать правила могут модераторы от 3 ранга (⚔️ Старший модератор) и выше!</b>", parse_mode="HTML")
 
  
 
@@ -1002,9 +1594,9 @@ def setup_chat_extra(dp: Dispatcher, bot: Bot, cur, db, admin_id: int, levels: d
 
  
 
-        if not await is_boss_user(cid, uid, min_rank=3):
+        if not await is_boss_user(cid, uid, min_rank=4):
 
-            return await message.reply("⛔ <b>Удалять правила могут только админы (3+ ранг) и создатель чата!</b>", parse_mode="HTML")
+            return await message.reply("⛔ <b>Удалять правила могут админы от 4 ранга (👑 Заместитель) и Создатель!</b>", parse_mode="HTML")
 
  
 
@@ -1050,7 +1642,7 @@ def setup_chat_extra(dp: Dispatcher, bot: Bot, cur, db, admin_id: int, levels: d
 
                 "📜 <b>В этом чате ещё не установлены правила!</b>\n"
 
-                "<i>Админы могут задать их командой <code>+правила [текст]</code>.</i>",
+                "<i>Старшие модераторы (3+ ранг) могут задать их командой <code>+правила [текст]</code>.</i>",
 
                 parse_mode="HTML"
 
@@ -1110,7 +1702,7 @@ def setup_chat_extra(dp: Dispatcher, bot: Bot, cur, db, admin_id: int, levels: d
 
             "∙ 🧠 Правила аниме-викторины\n"
 
-            "∙ 🛡 Админ-команды для бесед\n"
+            "∙ 🛡 Админ-команды, ранги и варны\n"
 
             "━━━━━━━━━━━━━━\n"
 
@@ -1288,6 +1880,14 @@ def setup_chat_extra(dp: Dispatcher, bot: Bot, cur, db, admin_id: int, levels: d
 
  
 
+            c.execute("SELECT warns_count FROM chat_warns WHERE chat_id = ? AND user_id = ?", (cid, uid))
+
+            w_row = c.fetchone()
+
+            warns_cnt = int(w_row[0]) if w_row else 0
+
+ 
+
             c.execute("SELECT COUNT(*) + 1 FROM chat_members WHERE chat_id = ? AND msg_total > ?", (cid, msg_total))
 
             (chat_rank,) = c.fetchone()
@@ -1340,7 +1940,7 @@ def setup_chat_extra(dp: Dispatcher, bot: Bot, cur, db, admin_id: int, levels: d
 
             f"💬 <b>Чат:</b> {msg_total} сообщ. <i>(+{msg_today} сегодня)</i>\n"
 
-            f"🧠 <b>Викторина:</b> {quiz_wins} побед\n"
+            f"🧠 <b>Викторина:</b> {quiz_wins} побед | ⚠️ <b>Варны:</b> {warns_cnt}/3\n"
 
             f"📅 <b>В чате с:</b> {first_date_str} <i>({days_in_chat} дн.)</i>\n"
 
@@ -1351,8 +1951,6 @@ def setup_chat_extra(dp: Dispatcher, bot: Bot, cur, db, admin_id: int, levels: d
         )
 
         await message.reply(dossier_text, parse_mode="HTML", disable_web_page_preview=True)
-
- 
 
     @dp.message.outer_middleware()
 
@@ -1536,11 +2134,75 @@ def setup_chat_extra(dp: Dispatcher, bot: Bot, cur, db, admin_id: int, levels: d
 
  
 
+            if lower_text in RANKS_INFO_CMDS:
+
+                await handle_ranks_info(event)
+
+                return
+
+ 
+
             if lower_text in WHO_ADMIN_CMDS:
 
                 await handle_who_admin(event)
 
                 return
+
+ 
+
+            if lower_text == "список мутов":
+
+                await handle_punishments_list_extra(event, "mute")
+
+                return
+
+ 
+
+            if lower_text == "список банов":
+
+                await handle_punishments_list_extra(event, "ban")
+
+                return
+
+ 
+
+            for w_list_cmd in ("варны", "список варнов", "предупреждения"):
+
+                if lower_text == w_list_cmd or lower_text.startswith(w_list_cmd + " "):
+
+                    await handle_warns_query(event, full_text[len(w_list_cmd):])
+
+                    return
+
+ 
+
+            for unwarn_cmd in ("снять варн", "-варн", "разварн"):
+
+                if lower_text == unwarn_cmd or lower_text.startswith(unwarn_cmd + " "):
+
+                    await handle_warn_action(event, "unwarn", full_text[len(unwarn_cmd):])
+
+                    return
+
+ 
+
+            for warn_cmd in ("варн", "+варн", "пред"):
+
+                if lower_text == warn_cmd or lower_text.startswith(warn_cmd + " "):
+
+                    await handle_warn_action(event, "warn", full_text[len(warn_cmd):])
+
+                    return
+
+ 
+
+            for mod_cmd in ("размут", "разбан", "мут", "бан"):
+
+                if lower_text == mod_cmd or lower_text.startswith(mod_cmd + " "):
+
+                    await handle_ranked_moderation(event, mod_cmd, full_text[len(mod_cmd):])
+
+                    return
 
  
 
