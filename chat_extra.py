@@ -1049,8 +1049,8 @@ def setup_chat_extra(dp: Dispatcher, bot: Bot, cur, db, admin_id: int, levels: d
 
                     safe_n = str(uname).replace("<", "").replace(">", "")
 
-                    admins_by_rank[rnk].append(f"• <b>{safe_n.lstrip('@')}</b>
-                    seen_ids.add(uid)
+                    lines.append(f"{idx}. <b>{safe_n.lstrip('@')}</b> — {time_left}")
+                    
 
  
 
