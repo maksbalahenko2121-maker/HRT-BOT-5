@@ -2310,21 +2310,31 @@ def setup_chat_extra(dp: Dispatcher, bot: Bot, cur, db, admin_id: int, levels: d
 
             if lower_text in ("стата", "топ", "топ чата", "стата день", "топ дня"):
 
-                t_text, t_kb = build_chat_top_card(event.chat.id, event.from_user.id, mode="today")
+               t_text, t_kb = build_chat_top_card(event.chat.id, event.from_user.id, mode="today", clickable=False)
 
-                await event.reply(t_text, reply_markup=t_kb, parse_mode="HTML", disable_web_page_preview=True)
+               sent = await event.answer(t_text, reply_markup=t_kb, parse_mode="HTML", disable_web_page_preview=True, disable_notification=True)
+ 
+               t_text_links, _ = build_chat_top_card(event.chat.id, event.from_user.id, mode="today", clickable=True)
 
-                return
+               await sent.edit_text(t_text_links, reply_markup=t_kb, parse_mode="HTML", disable_web_page_preview=True)
+
+               return
 
  
 
-            if lower_text in ("вся стата", "стата вся", "общий топ", "топ весь", "топ за все время", "топ за всё время"):
+           if lower_text in ("вся стата", "стата вся", "общий топ", "топ весь", "топ за все время", "топ за всё время"):
 
-                t_text, t_kb = build_chat_top_card(event.chat.id, event.from_user.id, mode="all")
+               t_text, t_kb = build_chat_top_card(event.chat.id, event.from_user.id, mode="all", clickable=False)
+ 
+               sent = await event.answer(t_text, reply_markup=t_kb, parse_mode="HTML", disable_web_page_preview=True, disable_notification=True)
 
-                await event.answer(..., disable_notification=True)
+               t_text_links, _ = build_chat_top_card(event.chat.id, event.from_user.id, mode="all", clickable=True)
 
-                return
+               await sent.edit_text(t_text_links, reply_markup=t_kb, parse_mode="HTML", disable_web_page_preview=True)
+
+               return
+
+
              
 
  
