@@ -236,10 +236,6 @@ def parse_mod_duration(args_str: str) -> tuple[int, str]:
 
     return val * 60, f"{val} мин."
 
- 
-
- 
-
 def setup_chat_extra(dp: Dispatcher, bot: Bot, cur, db, admin_id: int, levels: dict, get_user_fn, active_quiz_dict: dict = None, start_fn=None, road_fn=None, top_fn=None, promo_fn=None):
 
     if active_quiz_dict is None:
@@ -282,9 +278,9 @@ def setup_chat_extra(dp: Dispatcher, bot: Bot, cur, db, admin_id: int, levels: d
 
             row = c.fetchone()
 
-            if row and row > 0:
+            if row is not None:
 
-                return int(row)
+                return int(row[0])
 
  
 
@@ -342,7 +338,7 @@ def setup_chat_extra(dp: Dispatcher, bot: Bot, cur, db, admin_id: int, levels: d
 
  
 
-        target_token = tokens.replace("<", "").replace(">", "")
+        target_token = tokens[0].replace("<", "").replace(">", "")
 
         rest_str = " ".join(tokens[1:]) if len(tokens) > 1 else ""
 
@@ -356,19 +352,27 @@ def setup_chat_extra(dp: Dispatcher, bot: Bot, cur, db, admin_id: int, levels: d
 
                 c = conn.cursor()
 
-                c.execute("SELECT user_id, user_name FROM chat_members WHERE chat_id = ? AND LOWER(user_name) = ?", (cid, uname_clean))
+                ensure_extra_tables(c)
+
+                c.execute("SELECT user_id, username FROM users WHERE LOWER(username) = ?", (uname_clean,))
 
                 row = c.fetchone()
 
                 if not row:
 
-                    c.execute("SELECT user_id, username FROM users WHERE LOWER(username) = ?", (uname_clean,))
+                    c.execute("SELECT user_id, user_name FROM chat_members WHERE chat_id = ? AND LOWER(user_name) = ?", (cid, uname_clean))
+
+                    row = c.fetchone()
+
+                if not row:
+
+                    c.execute("SELECT user_id, user_name FROM chat_ranks WHERE chat_id = ? AND LOWER(user_name) = ?", (cid, uname_clean))
 
                     row = c.fetchone()
 
             if row:
 
-                return int(row), str(row).replace("<", "").replace(">", ""), rest_str
+                return int(row[0]), str(row[1]).replace("<", "").replace(">", ""), rest_str
 
  
 
@@ -420,7 +424,7 @@ def setup_chat_extra(dp: Dispatcher, bot: Bot, cur, db, admin_id: int, levels: d
 
             "<b>5 ранг — 🔱 Создатель:</b>\n"
 
-            "• Полный доступ ко всему + <b>назначение и снятие любых рангов (1–4)</b>\n"
+            "• Полный доступ ко всему + <b>назначение, повышение и снятие любых рангов (1–4)</b>\n"
 
             "━━━━━━━━━━━━━━\n"
 
@@ -444,7 +448,7 @@ def setup_chat_extra(dp: Dispatcher, bot: Bot, cur, db, admin_id: int, levels: d
 
         if sender_rank < 5:
 
-            return await message.reply("⛔ <b>Выдавать, повышать и снимать ранги может только Создатель беседы (5 ранг)!</b>", parse_mode="HTML")
+            return await message.reply("⛔ <b>Выдавать, повышать и понижать ранги может ТОЛЬКО Создатель беседы (5 ранг)!</b>", parse_mode="HTML")
 
  
 
@@ -475,6 +479,8 @@ def setup_chat_extra(dp: Dispatcher, bot: Bot, cur, db, admin_id: int, levels: d
         if target_id == sender_id:
 
             return await message.reply("😒 Ты и так Создатель этой беседы, дурак!")
+
+ 
 
         target_rank = await get_member_rank(cid, target_id)
 
@@ -520,7 +526,7 @@ def setup_chat_extra(dp: Dispatcher, bot: Bot, cur, db, admin_id: int, levels: d
 
             if new_rank == 0:
 
-                c.execute("DELETE FROM chat_ranks WHERE chat_id = ? AND user_id = ?", (cid, target_id))
+                c.execute("INSERT OR REPLACE INTO chat_ranks (chat_id, user_id, user_name, rank) VALUES (?, ?, ?, 0)", (cid, target_id, target_name))
 
             else:
 
@@ -746,6 +752,8 @@ def setup_chat_extra(dp: Dispatcher, bot: Bot, cur, db, admin_id: int, levels: d
 
         )
 
+ 
+
     async def handle_warns_query(message: types.Message, arg_text: str):
 
         cid = message.chat.id
@@ -770,7 +778,7 @@ def setup_chat_extra(dp: Dispatcher, bot: Bot, cur, db, admin_id: int, levels: d
 
                 t_link = f'<a href="tg://user?id={target_id}"><b>{target_name}</b></a>'
 
-                if not row or row[0] <= 0:
+                if not row or int(row[0]) <= 0:
 
                     return await message.reply(f"🟢 У игрока {t_link} сейчас <b>0 / 3 варнов</b>!", parse_mode="HTML")
 
@@ -819,8 +827,6 @@ def setup_chat_extra(dp: Dispatcher, bot: Bot, cur, db, admin_id: int, levels: d
  
 
         await message.reply("\n".join(lines), parse_mode="HTML", disable_web_page_preview=True)
-
- 
 
     async def handle_ranked_moderation(message: types.Message, cmd: str, arg_text: str):
 
@@ -969,6 +975,8 @@ def setup_chat_extra(dp: Dispatcher, bot: Bot, cur, db, admin_id: int, levels: d
         except Exception as e:
 
             await message.reply(f"⚠️ <b>Не удалось выполнить технику!</b>\nПроверь права админа у бота. Причина: <code>{e}</code>", parse_mode="HTML")
+
+ 
 
     async def handle_punishments_list_extra(message: types.Message, p_type: str):
 
