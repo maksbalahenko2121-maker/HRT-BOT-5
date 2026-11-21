@@ -1018,8 +1018,7 @@ def setup_chat_extra(dp: Dispatcher, bot: Bot, cur, db, admin_id: int, levels: d
 
             time_left = "навсегда" if until_ts == 0 else f"до <code>{datetime.fromtimestamp(until_ts).strftime('%d.%m в %H:%M')}</code>"
 
-            lines.append(f"{idx}. <a href=\"tg://user?id={uid}\"><b>{safe_n}</b></a> — {time_left}")
-
+            lines.append(f"{idx}. <b>{safe_n.lstrip('@')}</b>
  
 
         await message.reply("\n".join(lines), parse_mode="HTML", disable_web_page_preview=True)
@@ -1050,8 +1049,7 @@ def setup_chat_extra(dp: Dispatcher, bot: Bot, cur, db, admin_id: int, levels: d
 
                     safe_n = str(uname).replace("<", "").replace(">", "")
 
-                    admins_by_rank[rnk].append(f"• <a href=\"tg://user?id={uid}\"><b>{safe_n}</b></a>")
-
+                    admins_by_rank[rnk].append(f"• <b>{safe_n.lstrip('@')}</b>
                     seen_ids.add(uid)
 
  
@@ -1072,12 +1070,11 @@ def setup_chat_extra(dp: Dispatcher, bot: Bot, cur, db, admin_id: int, levels: d
 
                 if m.status == "creator" or u.id == admin_id:
 
-                    admins_by_rank[5].append(f"• <a href=\"tg://user?id={u.id}\"><b>{safe_n}</b></a>")
+                    admins_by_rank[5].append(f"• <b>{safe_n.lstrip('@')}</b>
 
                 else:
 
-                    admins_by_rank[3].append(f"• <a href=\"tg://user?id={u.id}\"><b>{safe_n}</b></a>")
-
+                    admins_by_rank[3].append(f"• <b>{safe_n.lstrip('@')}</b>
                 seen_ids.add(u.id)
 
         except Exception:
@@ -1935,7 +1932,7 @@ def setup_chat_extra(dp: Dispatcher, bot: Bot, cur, db, admin_id: int, levels: d
 
                 u_link = f'<a href="tg://user?id={uid}"><b>{safe_n}</b></a>'
 
-                mark = medals.get(idx, f"<b>{idx}.</b>")
+                mark = medals.get(idx, <b>{safe_n.lstrip('@')}</b>)
 
                 if mode == "today":
 
@@ -2323,7 +2320,7 @@ def setup_chat_extra(dp: Dispatcher, bot: Bot, cur, db, admin_id: int, levels: d
 
                 t_text, t_kb = build_chat_top_card(event.chat.id, event.from_user.id, mode="all")
 
-                await event.reply(t_text, reply_markup=t_kb, parse_mode="HTML", disable_web_page_preview=True)
+                await event.answer(..., disable_notification=True)
 
                 return
              
