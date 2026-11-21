@@ -1820,6 +1820,173 @@ def setup_chat_extra(dp: Dispatcher, bot: Bot, cur, db, admin_id: int, levels: d
 
         return True
 
+
+    def build_chat_top_card(cid: int, caller_id: int, mode: str = "today"):
+
+        with sqlite3.connect("game_v2.db") as conn:
+
+            c = conn.cursor()
+
+            ensure_extra_tables(c)
+
+ 
+
+            if mode == "today":
+
+                c.execute("""
+
+                    SELECT user_id, user_name, msg_today, msg_total
+
+                    FROM chat_members
+
+                    WHERE chat_id = ? AND msg_today > 0
+
+                    ORDER BY msg_today DESC, msg_total DESC LIMIT 30
+
+                """, (cid,))
+
+                rows = c.fetchall()
+
+                c.execute("SELECT COALESCE(SUM(msg_today), 0) FROM chat_members WHERE chat_id = ?", (cid,))
+
+                (sum_val,) = c.fetchone()
+
+                c.execute("SELECT msg_today, msg_total FROM chat_members WHERE chat_id = ? AND user_id = ?", (cid, caller_id))
+
+                u_row = c.fetchone()
+
+                u_tod, u_tot = (u_row[0], u_row[1]) if u_row else (0, 0)
+
+                if u_tod > 0:
+
+                    c.execute(
+
+                        "SELECT COUNT(*) + 1 FROM chat_members WHERE chat_id = ? AND (msg_today > ? OR (msg_today = ? AND msg_total > ?))",
+
+                        (cid, u_tod, u_tod, u_tot)
+
+                    )
+
+                    (u_rank,) = c.fetchone()
+
+                    my_line = f"👤 Твоё место: <b>#{u_rank}</b> (+{u_tod} сег. | {u_tot} всего)"
+
+                else:
+
+                    my_line = f"👤 Твоё место: <b>вне топа дня</b> (0 сег. | {u_tot} всего)"
+
+                header = f"🔥 <b>ТОП-30 АКТИВНОСТИ ЗА СЕГОДНЯ</b>\n💬 Написано за день: <b>+{sum_val} сообщ.</b>"
+
+            else:
+
+                c.execute("""
+
+                    SELECT user_id, user_name, msg_total, msg_today
+
+                    FROM chat_members
+
+                    WHERE chat_id = ? AND msg_total > 0
+
+                    ORDER BY msg_total DESC, msg_today DESC LIMIT 30
+
+                """, (cid,))
+
+                rows = c.fetchall()
+
+                c.execute("SELECT COALESCE(SUM(msg_total), 0), COALESCE(SUM(msg_today), 0) FROM chat_members WHERE chat_id = ?", (cid,))
+
+                sum_tot, sum_tod = c.fetchone()
+
+                c.execute("SELECT msg_total, msg_today FROM chat_members WHERE chat_id = ? AND user_id = ?", (cid, caller_id))
+
+                u_row = c.fetchone()
+
+                u_tot, u_tod = (u_row[0], u_row[1]) if u_row else (0, 0)
+
+                if u_tot > 0:
+
+                    c.execute("SELECT COUNT(*) + 1 FROM chat_members WHERE chat_id = ? AND msg_total > ?", (cid, u_tot))
+
+                    (u_rank,) = c.fetchone()
+
+                    my_line = f"👤 Твоё место: <b>#{u_rank}</b> ({u_tot} сообщ., +{u_tod} сег.)"
+
+                else:
+
+                    my_line = "👤 Твоё место: <b>вне рейтинга</b> (0 сообщ.)"
+
+                header = f"🏆 <b>ТОП-30 АКТИВНОСТИ ЗА ВСЁ ВРЕМЯ</b>\n💬 Всего в беседе: <b>{sum_tot}</b> (+{sum_tod} сег.)"
+
+ 
+
+        lines = [header, "━━━━━━━━━━━━━━━━━━━━"]
+
+        if not rows:
+
+            lines.append("<i>Пока никто не написал ни одного сообщения!</i>")
+
+        else:
+
+            medals = {1: "🥇", 2: "🥈", 3: "🥉"}
+
+            for idx, (uid, uname, main_cnt, sec_cnt) in enumerate(rows, 1):
+
+                safe_n = str(uname or "Шиноби").replace("<", "").replace(">", "")
+
+                u_link = f'<a href="tg://user?id={uid}"><b>{safe_n}</b></a>'
+
+                mark = medals.get(idx, f"<b>{idx}.</b>")
+
+                if mode == "today":
+
+                    lines.append(f"{mark} {u_link} — <b>+{main_cnt}</b> <i>({sec_cnt} всего)</i>")
+
+                else:
+
+                    lines.append(f"{mark} {u_link} — <b>{main_cnt}</b> <i>(+{sec_cnt})</i>")
+
+ 
+
+        lines.append("━━━━━━━━━━━━━━━━━━━━")
+
+        lines.append(my_line)
+
+        lines.append("<i>Команды: <code>стата</code> (день) | <code>вся стата</code> (всегда)</i>")
+
+ 
+
+        kb = InlineKeyboardMarkup(inline_keyboard=[[
+
+            InlineKeyboardButton(text="🔥 За сегодня" + (" ✓" if mode == "today" else ""), callback_data=f"ctop:today:{caller_id}"),
+
+            InlineKeyboardButton(text="🏆 За всё время" + (" ✓" if mode == "all" else ""), callback_data=f"ctop:all:{caller_id}"),
+
+        ]])
+
+        return "\n".join(lines), kb
+
+ 
+
+    @dp.callback_query(F.data.startswith("ctop:"))
+
+    async def cb_switch_chat_top(call: types.CallbackQuery):
+
+        _, mode, orig_uid_str = call.data.split(":")
+
+        cid = call.message.chat.id
+
+        text, kb = build_chat_top_card(cid, call.from_user.id, mode=mode)
+
+        try:
+
+            await call.message.edit_text(text, reply_markup=kb, parse_mode="HTML", disable_web_page_preview=True)
+
+        except Exception:
+
+            pass
+
+        await call.answer()
+
  
 
     async def send_user_dossier(message: types.Message):
@@ -2139,6 +2306,27 @@ def setup_chat_extra(dp: Dispatcher, bot: Bot, cur, db, admin_id: int, levels: d
                 await send_user_dossier(event)
 
                 return
+
+
+
+             if lower_text in ("стата", "топ", "топ чата", "стата день", "топ дня"):
+
+                t_text, t_kb = build_chat_top_card(event.chat.id, event.from_user.id, mode="today")
+
+                await event.reply(t_text, reply_markup=t_kb, parse_mode="HTML", disable_web_page_preview=True)
+
+                return
+
+ 
+
+            if lower_text in ("вся стата", "стата вся", "общий топ", "топ весь", "топ за все время", "топ за всё время"):
+
+                t_text, t_kb = build_chat_top_card(event.chat.id, event.from_user.id, mode="all")
+
+                await event.reply(t_text, reply_markup=t_kb, parse_mode="HTML", disable_web_page_preview=True)
+
+                return
+             
 
  
 
