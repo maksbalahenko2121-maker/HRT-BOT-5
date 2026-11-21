@@ -608,9 +608,9 @@ def setup_chat_extra(dp: Dispatcher, bot: Bot, cur, db, admin_id: int, levels: d
 
                 return
 
-            elif btn_text == "🎟 Ввести промокод" and promo_fn:
+            elif btn_text == "🎟 Ввести промокод":
 
-                await promo_fn(event)
+                await event.reply("🎟 <b>Ввод промокода:</b>\nОтправь боту команду: <code>/promo ТВОЙ_КОД</code>", parse_mode="HTML")
 
                 return
 
