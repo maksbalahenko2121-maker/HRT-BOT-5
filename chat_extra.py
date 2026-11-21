@@ -1931,7 +1931,7 @@ def setup_chat_extra(dp: Dispatcher, bot: Bot, cur, db, admin_id: int, levels: d
 
             for idx, (uid, uname, main_cnt, sec_cnt) in enumerate(rows, 1):
 
-                safe_n = str(uname or "Шиноби").replace("<", "").replace(">", "")
+                safe_n = str(uname or "Шиноби").lstrip("@").replace("<", "").replace(">", "")
 
                 u_link = f'<a href="tg://user?id={uid}"><b>{safe_n}</b></a>'
 
